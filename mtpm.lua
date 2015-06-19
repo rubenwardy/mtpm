@@ -56,9 +56,8 @@ core = core or (function()
 		end,
 		download_file = function(url, filename)
 			os.execute("wget " .. url .. " -O " .. filename)
-
 			if true then
-				return
+				return true
 			end
 
 			print("doing")
@@ -119,16 +118,27 @@ function mtpm.isValidModname(modpath)
 	return (modpath:find("-") == nil)
 end
 
-function mtpm.fetch(package_name)
+function mtpm.fetch(package_name, skip_check_repos)
+	print("Searching for " .. package_name)
+	local tmp
 	local username, repo = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+)/?$")
 	if username and repo then
-		local tmp = os.tempfolder()
-		core.download_file("https://github.com/" .. username .. "/" .. repo .. "/archive/master.zip", tmp .. "tmp.zip")
-		return tmp .. "tmp.zip"
+		tmp = tmp or os.tempfolder()
+		if core.download_file("https://github.com/" .. username .. "/" .. repo .. "/archive/master.zip", tmp .. "tmp.zip") then
+			return tmp .. "tmp.zip"
+		end
+	end
+
+	local username, packagename = string.match(package_name:trim(), "^([%a%d_]+)/([%a%d_]+)$")
+	if username and packagename then
+		tmp = tmp or os.tempfolder()
+		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
+			return tmp .. "tmp.zip"
+		end
 	end
 
 	if package_name:sub(1, 4) == "http" and package_name:find(":") <= 6 then
-		local tmp = os.tempfolder()
+		tmp = tmp or os.tempfolder()
 		core.download_file(package_name, tmp .. "tmp.zip")
 		return tmp .. "tmp.zip"
 	end
@@ -137,6 +147,41 @@ function mtpm.fetch(package_name)
 	if file then
 		file:close()
 		return package_name
+	end
+	
+	local repos = io.open("repositories.csv", "r")
+	if not skip_check_repos and repos then
+		for line in repos:lines() do
+			local fields = line:split(",")
+			if fields[1]:trim():lower() ~= "title" then
+				print("Looking in " .. fields[1]:trim())
+				local res = mtpm.fetch_from_repo(package_name, fields)
+				if res then
+					return res
+				end
+			end
+		end
+		repos:close()
+	end
+end
+
+function mtpm.fetch_from_repo(package_name, fields)
+	if fields[3]:trim() == "CSV" then
+		local tmp = os.tempfolder()
+		if core.download_file(fields[4], tmp .. "repo.csv") then
+			local repo = io.open(tmp .. "repo.csv", "r")
+			if repo then
+				for line in repo:lines() do
+					local fields = line:split(",")
+					print("Comparing against " .. fields[1]:trim())
+					if fields[1]:trim():find(package_name) then
+						print("Found " .. fields[1]:trim())
+						return mtpm.fetch(fields[2]:trim(), true)
+					end
+				end
+				repo:close()
+			end
+		end
 	end
 end
 
