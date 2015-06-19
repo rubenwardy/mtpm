@@ -2,12 +2,13 @@
 
 local dofile_args = ...
 
-mtpm = {
-	res = ... or ""
-}
+mtpm = {}
 
-dofile(mtpm.res .. "core.lua")
-dofile(mtpm.res .. "identify.lua")
+function mtpm.init(res)
+	mtpm.res = res
+	dofile(mtpm.res .. "core.lua")
+	dofile(mtpm.res .. "identify.lua")
+end
 
 function mtpm.isValidModname(modpath)
 	return (modpath:find("-") == nil)
@@ -228,7 +229,9 @@ function command_install(args, reinstall, override)
 	end
 end
 
-if core.is_standalone then
+if debug.getinfo(2) then
+	mtpm.init("")
+	
 	local count = 0
 	function os.tempfolder()
 		count = count + 1

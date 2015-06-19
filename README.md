@@ -42,12 +42,16 @@ Some mods may install incorrectly.
 You can include mtpm.lua from another lua file.
 
 ```lua
-dofile("mtpm/mtpm.lua", "mtpm/")
--- path to mtpm's resources -^
+dofile("mtpm/mtpm.lua")
+
+-- path to mtpm's resources
+mtpm.init("mtpm/")
 ```
 
 ### Methods
 
+* `mtpm.init(res_path)`
+	* Reads mtpm data (lua files, repository lists) in res_path.
 * `mtpm.install(package_name, reinstall, override)`
 	* `package_name` - the package name, see usage section above.
 	* `reinstall` - boolean, should a mod be reinstalled. (Don't use versions in packagename)
@@ -87,7 +91,3 @@ dofile("mtpm/mtpm.lua", "mtpm/")
 	* Finds the modname / basename by looking in lua files
 	* `modpath` - path to the extracted zip.
 	* `filename` - optional, this function is recursive through dofiles.
-
-### Members
-
-* `mtpm.res` - resource folder.
