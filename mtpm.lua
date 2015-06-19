@@ -4,21 +4,21 @@ function string:trim()
 	return (self:gsub("^%s*(.-)%s*$", "%1"))
 end
 
-function string.split(str, delim, include_empty, max_splits, sep_is_pattern)
+function string:split(delim, include_empty, max_splits, sep_is_pattern)
 	delim = delim or ","
 	max_splits = max_splits or -1
 	local items = {}
-	local pos, len, seplen = 1, #str, #delim
+	local pos, len, seplen = 1, #self, #delim
 	local plain = not sep_is_pattern
 	max_splits = max_splits + 1
 	repeat
-		local np, npe = str:find(delim, pos, plain)
+		local np, npe = self:find(delim, pos, plain)
 		np, npe = (np or (len+1)), (npe or (len+1))
 		if (not np) or (max_splits == 1) then
 			np = len + 1
 			npe = np
 		end
-		local s = str:sub(pos, np - 1)
+		local s = self:sub(pos, np - 1)
 		if include_empty or (s ~= "") then
 			max_splits = max_splits - 1
 			table.insert(items, s)
@@ -46,10 +46,9 @@ core = core or (function()
 			end
 			local retval = {}
 			for file in lfs.dir(directory) do
-				if lfs.attributes(file, "mode") == "directory" and
+				if core.is_dir(directory .. file) and
 				 		file ~= "." and file ~= ".." then
 					table.insert(retval, file)
-					print(file)
 				end
 			end
 			return retval
@@ -344,7 +343,9 @@ if core.is_standalone then
 				-- Extract
 				local tempfolder = os.tempfolder()
 				core.extract_zip(modpath, tempfolder)
-				print(mtpm.get_base_folder(tempfolder).type)
+				
+				-- Check
+				print(mtpm.get_base_folder(tempfolder).path)
 			else
 				print("Package not found")
 			end

@@ -28,6 +28,7 @@ function mtpm.get_base_folder(path)
 
 	--only single mod or modpack allowed
 	if #subdirs ~= 1 then
+		print("Too many subfolders " .. #subdirs)
 		return {
 			type = "invalid",
 			path = ""
