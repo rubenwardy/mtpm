@@ -173,18 +173,17 @@ function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinsta
 	end
 end
 
-function command_install(reinstall)
+function command_install(args, reinstall)
 	local modloc = core.get_modpath()
 	
 	if modloc then
-		for i = 2, #arg do
+		for i = 2, #args do
 			-- file run directly
 			local package_name = arg[i]
 			print("Searching for " .. package_name)
 
 			-- Download from the internet
 			local details = mtpm.fetch(package_name)
-			print(details.path)
 			if details then
 				-- Extract
 				local tempfolder = os.tempfolder()
@@ -219,8 +218,69 @@ if core.is_standalone then
 		core.create_dir("tmp/tmp_" .. count)
 		return "tmp/tmp_" .. count .. "/"
 	end
-
-	if arg[1]:trim() == "config" then
+	
+	--
+	-- Command Line Arguments and Options parser
+	--
+	local OptionParser = dofile(mtpm.res .. "optparse.lua")
+	local opt = OptionParser.OptionParser({
+			usage="%prog [options] <command> [<args>]",
+			version="mtpm 0.1",
+			add_help_option=false
+	})
+	local tmp_help = opt.print_help
+	function opt.print_help()
+		tmp_help()
+		
+		print("\nCommands:")
+		print("  install package1 [package2] ...")
+		print("  update package1 [package2] ...")
+		print("  config setting value")
+	end
+	opt.add_option({
+		"-h", "--help",
+		action = "store_true",
+		dest   = "help",
+		help   = "show this information"
+	})
+	opt.add_option({
+		"--version",
+		action = "store_true",
+		dest   = "version",
+		help   = "show version number"
+	})
+	opt.add_option({
+		"--reinstall",
+		dest   = "reinstall",
+		action = "store_true",
+		help   = "reinstall the package"
+	})
+	opt.add_option({
+		"-m",  "--mod_location",
+		dest   = "mod_location",
+		action = "store",
+		help   = "change mod location (isn't stored, only for this session)"
+	})
+	local options, args = opt.parse_args()
+	local command = args[1]
+	if options.mod_location then
+		function core.get_modpath()
+			return options.mod_location
+		end
+	end
+	if options.version then
+		opt.print_version()
+		os.exit(1)
+	end
+	if not command or options.help then
+		opt.print_help()
+		os.exit(1)
+	end
+	
+	--
+	-- Do Commands
+	--
+	if command == "config" then
 		local home = os.getenv("HOME")
 
 		local conf = io.open(home .. "/.mtpm.conf")
@@ -254,13 +314,9 @@ if core.is_standalone then
 						arg[3]:trim() .. "\n")
 			conf:close()
 		end
-	elseif arg[1]:trim() == "install" then
-		command_install(false)
-	elseif arg[1]:trim() == "update" then
-		command_install(true)
-	elseif arg[1]:trim() == "reinstall" then
-		command_install(true)
-	else
-		print("USAGE: mtpm install packagename")
+	elseif command == "install" then
+		command_install(args, options.reinstall)
+	elseif command == "update" then
+		command_install(args, true)
 	end
 end

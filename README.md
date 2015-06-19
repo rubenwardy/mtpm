@@ -26,6 +26,7 @@ $ ./mtpm.lua install package1 package2 package3
 #	http://url/to/download/ - downloads archive from this mod
 #	http://github.com/username/packagename/
 #	http://github.com/username/packagename.git
+# See ./mtpm.lua --help
 ```
 
 Please note that this is a work in progress.
