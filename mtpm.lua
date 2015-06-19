@@ -1,7 +1,9 @@
 #!/usr/bin/lua
 
+local dofile_args = ...
+
 mtpm = {
-	res = ""
+	res = ... or ""
 }
 
 dofile(mtpm.res .. "core.lua")
@@ -109,12 +111,12 @@ function mtpm.fetch_from_repo(package_name, fields)
 	end
 end
 
-local function doinstall(dir, basefolder, basename, reinstall)
+local function doinstall_mod(dir, basefolder, basename, override)
 	if basename then
 		local targetpath = core.get_modpath() .. DIR_DELIM .. basename
 		
 		if core.is_dir(targetpath) then
-			if reinstall then
+			if override then
 				core.delete_dir(targetpath)
 			else
 				return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
@@ -132,11 +134,7 @@ local function doinstall(dir, basefolder, basename, reinstall)
 	return 1, nil
 end
 
-function mtpm.reinstall(dir, basename, is_basename_certain, check_is_type)
-	mtpm.install(dir, basename, is_basename_certain, check_is_type, true)
-end
-
-function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinstall)
+function mtpm.install_folder(dir, basename, is_basename_certain, check_is_type, override)
 	local basefolder = mtpm.get_base_folder(dir)
 	
 	if check_is_type then
@@ -157,7 +155,7 @@ function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinsta
 			clean_packname = "mp_1"
 		end
 
-		return doinstall(dir, basefolder, clean_packname, reinstall)
+		return doinstall_mod(dir, basefolder, clean_packname, override)
 	end
 
 	if basefolder.type == "mod" then
@@ -170,11 +168,32 @@ function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinsta
 			end
 		end
 
-		return doinstall(dir, basefolder, clean_modname, reinstall)
+		return doinstall_mod(dir, basefolder, clean_modname, override)
 	end
 end
 
-function command_install(args, reinstall)
+function mtpm.install(package_name, reinstall, override)
+	override = override or reinstall
+	-- TODO: if reinstall is true, make it get the same version.
+	local details = mtpm.fetch(package_name)
+	return mtpm.install_archive(package_name, details, override)
+end
+
+function mtpm.install_archive(package_name, details, override)
+	if details then
+		-- Extract
+		local tempfolder = os.tempfolder()
+		core.extract_zip(details.path, tempfolder)
+
+		-- Install
+		return mtpm.install_folder(tempfolder, details.basename,
+				details.basename_is_certain, nil, override)
+	else
+		return 3, fgettext("Unable to locate $1!", package_name)
+	end
+end
+
+function command_install(args, reinstall, override)
 	local modloc = core.get_modpath()
 	
 	if modloc and core.is_dir(modloc) then
@@ -187,26 +206,18 @@ function command_install(args, reinstall)
 			local package_name = arg[i]
 
 			-- Download from the internet
-			local details = mtpm.fetch(package_name)
-			if details then
-				-- Extract
-				local tempfolder = os.tempfolder()
-				core.extract_zip(details.path, tempfolder)
-
-				-- Install
-				local suc, msg = mtpm.install(tempfolder, details.basename,
-						details.basename_is_certain, nil, reinstall)
-				if suc == 1 then
-					done = done + 1
-				elseif suc == 2 then
-					uptodate = uptodate + 1
-				else
-					failed = failed + 1
-					print(msg)
-				end
-			else
+			local suc, msg = mtpm.install(package_name, install, override)
+			if suc == 1 then
+				done = done + 1
+			elseif suc == 2 then
+				uptodate = uptodate + 1
+				print(msg)
+			elseif suc == 3 then
 				notfound = notfound + 1
-				print("Unable to locate " .. package_name .. "!")
+				print(msg)
+			else
+				failed = failed + 1
+				print(msg)
 			end
 		end
 		print(done .. " installed, " .. uptodate .. " already installed, " .. failed .. " failed and " .. notfound .. " could not be found.")
@@ -324,8 +335,8 @@ if core.is_standalone then
 			conf:close()
 		end
 	elseif command == "install" then
-		command_install(args, options.reinstall)
+		command_install(args, options.reinstall, options.reinstall)
 	elseif command == "update" then
-		command_install(args, true)
+		command_install(args, false, true)
 	end
 end
