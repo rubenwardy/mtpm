@@ -278,6 +278,11 @@ if core.is_standalone then
 			conf = io.open(home .. "/.mtpm.conf", "w")
 			conf:write(retval)
 			conf:close()
+		else
+			conf = io.open(home .. "/.mtpm.conf", "w")
+			conf:write(arg[2]:trim() .. " = " ..
+						arg[3]:trim() .. "\n")
+			conf:close()
 		end
 	elseif arg[1]:trim() == "install" then
 		local modloc = mtpm.get_modlocation()
@@ -289,11 +294,15 @@ if core.is_standalone then
 
 			-- Download from the internet
 			local modpath = mtpm.fetch(package_name)
-
-			-- Extract
-			local tempfolder = os.tempfolder()
-			core.extract_zip(modpath, tempfolder)
-			print(mtpm.get_base_folder(tempfolder).type)
+			
+			if modpath then
+				-- Extract
+				local tempfolder = os.tempfolder()
+				core.extract_zip(modpath, tempfolder)
+				print(mtpm.get_base_folder(tempfolder).type)
+			else
+				print("Package not found")
+			end
 		else
 			print("Unable to find the mods/ directory. Fix using:")
 			print("mtpm config mod_location /path/to/mods/")
