@@ -47,7 +47,7 @@ core = core or (function()
 			lfs.mkdir(directory)
 		end,
 		delete_dir = function(dir)
-			lfs.rmdir(dir)
+			os.execute("rm " .. dir .. " -r")
 		end,
 		copy_dir = function(from, to)
 			-- TODO: fix this (security issue)
@@ -259,12 +259,16 @@ function mtpm.fetch_from_repo(package_name, fields)
 	end
 end
 
-local function doinstall(dir, basefolder, basename)
+local function doinstall(dir, basefolder, basename, reinstall)
 	if basename then
 		local targetpath = core.get_modpath() .. DIR_DELIM .. basename
 		
 		if core.is_dir(targetpath) then
-			return false, fgettext("$1 is already installed at $2!", basename, targetpath)
+			if reinstall then
+				core.delete_dir(targetpath)
+			else
+				return false, fgettext("$1 is already installed at $2!", basename, targetpath)
+			end
 		end
 		
 		if not core.copy_dir(basefolder.path, targetpath) then
@@ -277,7 +281,11 @@ local function doinstall(dir, basefolder, basename)
 	return true, nil
 end
 
-function mtpm.install(dir, basename, basename_is_certain, check_is_type)
+function mtpm.reinstall(dir, basename, is_basename_certain, check_is_type)
+	mtpm.install(dir, basename, is_basename_certain, check_is_type, true)
+end
+
+function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinstall)
 	local basefolder = mtpm.get_base_folder(dir)
 	
 	if check_is_type then
@@ -298,20 +306,56 @@ function mtpm.install(dir, basename, basename_is_certain, check_is_type)
 			clean_packname = "mp_1"
 		end
 
-		return doinstall(dir, basefolder, clean_packname)
+		return doinstall(dir, basefolder, clean_packname, reinstall)
 	end
 
 	if basefolder.type == "mod" then
 		local clean_modname = basename
 
-		if not clean_modname or not basename_is_certain or not mtpm.isValidModname(clean_modname) then
+		if not clean_modname or not is_basename_certain or not mtpm.isValidModname(clean_modname) then
 			local res = mtpm.identify_modname(basefolder.path, "init.lua")
 			if res and res ~= clean_modname then
 				clean_modname = res
 			end
 		end
 
-		return doinstall(dir, basefolder, clean_modname)
+		return doinstall(dir, basefolder, clean_modname, reinstall)
+	end
+end
+
+function command_install(reinstall)
+	local modloc = core.get_modpath()
+	
+	if modloc then
+		for i = 2, #arg do
+			-- file run directly
+			local package_name = arg[i]
+			print("Searching for " .. package_name)
+
+			-- Download from the internet
+			local details = mtpm.fetch(package_name)
+			print(details.path)
+			if details then
+				-- Extract
+				local tempfolder = os.tempfolder()
+				core.extract_zip(details.path, tempfolder)
+				
+				-- Check
+				print(mtpm.get_base_folder(tempfolder).path)
+				
+				-- Install
+				local suc, msg = mtpm.install(tempfolder, details.basename,
+						details.basename_is_certain, nil, reinstall)
+				if not suc then
+					print(msg)
+				end
+			else
+				print("Package not found")
+			end
+		end
+	else
+		print("Unable to find the mods/ directory. Fix using:")
+		print("mtpm config mod_location /path/to/mods/")
 	end
 end
 
@@ -361,38 +405,11 @@ if core.is_standalone then
 			conf:close()
 		end
 	elseif arg[1]:trim() == "install" then
-		local modloc = core.get_modpath()
-
-		if modloc then
-			for i = 2, #arg do
-				-- file run directly
-				local package_name = arg[i]
-				print("Searching for " .. package_name)
-	
-				-- Download from the internet
-				local details = mtpm.fetch(package_name)
-				print(details.path)
-				if details then
-					-- Extract
-					local tempfolder = os.tempfolder()
-					core.extract_zip(details.path, tempfolder)
-					
-					-- Check
-					print(mtpm.get_base_folder(tempfolder).path)
-					
-					-- Install
-					local suc, msg = mtpm.install(tempfolder, details.basename, details.basename_is_certain)
-					if not suc then
-						print(msg)
-					end
-				else
-					print("Package not found")
-				end
-			end
-		else
-			print("Unable to find the mods/ directory. Fix using:")
-			print("mtpm config mod_location /path/to/mods/")
-		end
+		command_install(false)
+	elseif arg[1]:trim() == "update" then
+		command_install(true)
+	elseif arg[1]:trim() == "reinstall" then
+		command_install(true)
 	else
 		print("USAGE: mtpm install packagename")
 	end
