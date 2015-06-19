@@ -15,9 +15,9 @@ $ sudo luarocks install luazip
 $ sudo luarocks install luafilesystem
 
 # You can skip this line if mods are in ~/.minetest/mods/
-$ ./init.lua config mod_location /path/to/minetest/mods/
+$ ./mtpm.lua config mod_location /path/to/minetest/mods/
 
-$ ./init.lua install package1 package2 package3
+$ ./mtpm.lua install package1 package2 package3
 
 # A package name can be in one of these forms:
 #	packagename - if in mmdb or another repo
