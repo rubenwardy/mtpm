@@ -28,7 +28,7 @@ function mtpm.get_base_folder(path)
 
 	--only single mod or modpack allowed
 	if #subdirs ~= 1 then
-		print("Too many subfolders " .. #subdirs)
+		print("Too many subfolders " .. #subdirs .. " at " .. path)
 		return {
 			type = "invalid",
 			path = ""
@@ -68,7 +68,6 @@ function mtpm.identify_modname(modpath, filename)
 
 	local testfile = io.open(modpath .. DIR_DELIM .. filename, "r")
 	if testfile then
-		print("testing")
 		local line = testfile:read()
 
 		while line do
@@ -77,12 +76,10 @@ function mtpm.identify_modname(modpath, filename)
 			if line:find("minetest.register_tool") or
 					line:find("minetest.register_craftitem") or
 					line:find("minetest.register_node") then
-				print("register")
 				modname = mtpm.parse_register_line(line)
 			end
 
 			if line:find("dofile") then
-				print("dofile")
 				modname = mtpm.parse_dofile_line(modpath,line)
 			end
 

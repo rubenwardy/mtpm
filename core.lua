@@ -95,7 +95,7 @@ core = core or (function()
 		end,
 		download_file = function(url, filename)
 			-- TODO: fix this (security issue)
-			os.execute("wget " .. url .. " -O " .. filename)
+			os.execute("wget " .. url .. " -O " .. filename .. " > /tmp/bleg.txt 2>&1")
 			if true then
 				return true
 			end

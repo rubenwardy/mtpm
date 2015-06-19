@@ -117,18 +117,19 @@ local function doinstall(dir, basefolder, basename, reinstall)
 			if reinstall then
 				core.delete_dir(targetpath)
 			else
-				return false, fgettext("$1 is already installed at $2!", basename, targetpath)
+				return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
 			end
 		end
 		
 		if not core.copy_dir(basefolder.path, targetpath) then
-			return false, fgettext("Failed to install $1 to $2", basename, targetpath)
+			return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
 		end
 	else
-		return false, fgettext("Install Mod: unable to find suitable foldername for modpack $1", basename)
+		return 0, fgettext("Install Mod: unable to find suitable foldername for modpack $1", basename)
 	end
+
 	core.delete_dir(dir)
-	return true, nil
+	return 1, nil
 end
 
 function mtpm.reinstall(dir, basename, is_basename_certain, check_is_type)
@@ -140,9 +141,9 @@ function mtpm.install(dir, basename, is_basename_certain, check_is_type, reinsta
 	
 	if check_is_type then
 		if check_is_type == "mod" and basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
-			return false, fgettext("Failed to install $1 : it is not a mod or modpack", modpath)
+			return 0, fgettext("Failed to install $1 : it is not a mod or modpack", modpath)
 		elseif check_is_type ~= basefolder.type then
-			return false, fgettext("Failed to install $1 : it is not $2", modpath, check_is_type)
+			return 0, fgettext("Failed to install $1 : it is not $2", modpath, check_is_type)
 		end
 	end
 
@@ -176,11 +177,14 @@ end
 function command_install(args, reinstall)
 	local modloc = core.get_modpath()
 	
-	if modloc then
+	if modloc and core.is_dir(modloc) then
+		local done     = 0
+		local failed   = 0
+		local notfound = 0
+		local uptodate = 0
 		for i = 2, #args do
 			-- file run directly
 			local package_name = arg[i]
-			print("Searching for " .. package_name)
 
 			-- Download from the internet
 			local details = mtpm.fetch(package_name)
@@ -188,23 +192,28 @@ function command_install(args, reinstall)
 				-- Extract
 				local tempfolder = os.tempfolder()
 				core.extract_zip(details.path, tempfolder)
-				
-				-- Check
-				print(mtpm.get_base_folder(tempfolder).path)
-				
+
 				-- Install
 				local suc, msg = mtpm.install(tempfolder, details.basename,
 						details.basename_is_certain, nil, reinstall)
-				if not suc then
+				if suc == 1 then
+					done = done + 1
+				elseif suc == 2 then
+					uptodate = uptodate + 1
+				else
+					failed = failed + 1
 					print(msg)
 				end
 			else
-				print("Package not found")
+				notfound = notfound + 1
+				print("Unable to locate " .. package_name .. "!")
 			end
 		end
+		print(done .. " installed, " .. uptodate .. " already installed, " .. failed .. " failed and " .. notfound .. " could not be found.")
 	else
 		print("Unable to find the mods/ directory. Fix using:")
 		print("mtpm config mod_location /path/to/mods/")
+		print(" (if you have already done this, check that the directory exists.)")
 	end
 end
 
@@ -213,7 +222,7 @@ if core.is_standalone then
 	function os.tempfolder()
 		count = count + 1
 		if core.is_dir("tmp/tmp_" .. count) then
-			os.execute("rm tmp/tmp_" .. count .. " -r")
+			core.delete_dir("tmp/tmp_" .. count)
 		end
 		core.create_dir("tmp/tmp_" .. count)
 		return "tmp/tmp_" .. count .. "/"
