@@ -20,14 +20,13 @@ $ ./mtpm.lua config mod_location /path/to/minetest/mods/
 $ ./mtpm.lua install package1 package2 package3
 
 # A package name can be in one of these forms:
-#	packagename - if in mmdb or another repo
+#	packagename - gets from repos (eg: mmdb, MT-GitSync)
 #	package* - you can use wildchars.
 #	username/packagename - tries github then repos
 #	http://url/to/download/ - downloads archive from this mod
 #	http://github.com/username/packagename/
 #	http://github.com/username/packagename.git
-#   git://url/to/git
 ```
 
-Please note that this does not actually work yet.
-The above is just planned usage.
+Please note that this is a work in progress.
+Some mods may install incorrectly.

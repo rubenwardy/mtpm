@@ -1,10 +1,10 @@
 #!/usr/bin/lua
 
-function string:trim()
+string.trim = string.trim or function(self)
 	return (self:gsub("^%s*(.-)%s*$", "%1"))
 end
 
-function string:split(delim, include_empty, max_splits, sep_is_pattern)
+string.split = string.split or function(self, delim, include_empty, max_splits, sep_is_pattern)
 	delim = delim or ","
 	max_splits = max_splits or -1
 	local items = {}
@@ -28,6 +28,12 @@ function string:split(delim, include_empty, max_splits, sep_is_pattern)
 	return items
 end
 
+fgettext = fgettext or function(str, ...)
+	-- TODO: support fgettext in standalone
+	return str
+end
+
+DIR_DELIM = DIR_DELIM or "/"
 core = core or (function()
 	local zip  = require("zip")
 	local lfs  = require("lfs")
@@ -38,7 +44,15 @@ core = core or (function()
 			return (lfs.attributes(directory, "mode") == "directory")
 		end,
 		create_dir = function(directory)
-			os.execute("mkdir " .. directory)
+			lfs.mkdir(directory)
+		end,
+		delete_dir = function(dir)
+			lfs.rmdir(dir)
+		end,
+		copy_dir = function(from, to)
+			-- TODO: fix this (security issue)
+			os.execute("cp " .. from .. " " .. to .. " -r")
+			return true
 		end,
 		get_dir_list = function(directory)
 			if not directory then
@@ -53,7 +67,36 @@ core = core or (function()
 			end
 			return retval
 		end,
+		get_modpath = function()
+			local home = os.getenv("HOME")
+		
+			conf = io.open(home .. "/.mtpm.conf")
+			if conf then
+				for line in conf:lines() do
+					local setting = line:split("=")
+					if #setting == 2 then
+						if setting[1]:trim() == "mod_location" then
+							if core.is_dir(setting[2]:trim()) then
+								return setting[2]:trim()
+							else
+								print(home .. "/.mtpm.conf : given modpath does not exist!")
+								return
+							end
+						end
+					end
+				end
+				conf:close()
+			end
+		
+			local dir = home .. "/.minetest/mods/"
+			if core.is_dir(dir) then
+				return dir
+			end
+		
+			return
+		end,
 		download_file = function(url, filename)
+			-- TODO: fix this (security issue)
 			os.execute("wget " .. url .. " -O " .. filename)
 			if true then
 				return true
@@ -79,7 +122,7 @@ core = core or (function()
 
 			local function writefile(file)
 				local idx = #file.filename
-				if file.filename:sub(idx, idx) == mtpm.DIR_DELIM then
+				if file.filename:sub(idx, idx) == DIR_DELIM then
 					-- Is a directory
 					core.create_dir(path .. file.filename)
 				else
@@ -108,10 +151,11 @@ core = core or (function()
 end)()
 
 mtpm = {
-	DIR_DELIM = "/"
+	DIR_DELIM = "/",
+	res = "",
 }
 
-dofile("identify.lua")
+dofile(mtpm.res .. "identify.lua")
 
 function mtpm.isValidModname(modpath)
 	return (modpath:find("-") == nil)
@@ -120,11 +164,15 @@ end
 function mtpm.fetch(package_name, skip_check_repos)
 	print("Searching for " .. package_name)
 	local tmp
-	local username, repo = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+)/?$")
-	if username and repo then
+	local username, packagename = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+)/?$")
+	if username and packagename then
 		tmp = tmp or os.tempfolder()
-		if core.download_file("https://github.com/" .. username .. "/" .. repo .. "/archive/master.zip", tmp .. "tmp.zip") then
-			return tmp .. "tmp.zip"
+		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
+			return {
+				path = tmp .. "tmp.zip",
+				basename = packagename,
+				basename_is_certain = false
+			}
 		end
 	end
 
@@ -132,23 +180,43 @@ function mtpm.fetch(package_name, skip_check_repos)
 	if username and packagename then
 		tmp = tmp or os.tempfolder()
 		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
-			return tmp .. "tmp.zip"
+			return {
+				path = tmp .. "tmp.zip",
+				basename = packagename,
+				basename_is_certain = false
+			}
+		end
+	end
+
+	local username, packagename = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+).git$")
+	if username and packagename then
+		tmp = tmp or os.tempfolder()
+		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
+			return {
+				path = tmp .. "tmp.zip",
+				basename = packagename,
+				basename_is_certain = false
+			}
 		end
 	end
 
 	if package_name:sub(1, 4) == "http" and package_name:find(":") <= 6 then
 		tmp = tmp or os.tempfolder()
 		core.download_file(package_name, tmp .. "tmp.zip")
-		return tmp .. "tmp.zip"
+		return {
+			path = tmp .. "tmp.zip"
+		}
 	end
 
 	local file = io.open(package_name, "rb")
 	if file then
 		file:close()
-		return package_name
+		return {
+			path = package_name
+		}
 	end
 	
-	local repos = io.open("repositories.csv", "r")
+	local repos = io.open(mtpm.res .. "repositories.csv", "r")
 	if not skip_check_repos and repos then
 		for line in repos:lines() do
 			local fields = line:split(",")
@@ -172,10 +240,17 @@ function mtpm.fetch_from_repo(package_name, fields)
 			if repo then
 				for line in repo:lines() do
 					local fields = line:split(",")
-					print("Comparing against " .. fields[1]:trim())
 					if fields[1]:trim():find(package_name) then
 						print("Found " .. fields[1]:trim())
-						return mtpm.fetch(fields[2]:trim(), true)
+						local res = mtpm.fetch(fields[2]:trim(), true)
+						local basename = string.match(package_name:trim(), "^([%a%d_]+)$")
+						if basename then
+							res.basename = basename
+							res.basename_is_certain = true
+						end
+						res.title = fields[1]:trim()
+						res.forum = fields[3]:trim()
+						return res
 					end
 				end
 				repo:close()
@@ -184,103 +259,60 @@ function mtpm.fetch_from_repo(package_name, fields)
 	end
 end
 
-function mtpm.get_modlocation()
-	local home = os.getenv("HOME")
-
-	conf = io.open(home .. "/.mtpm.conf")
-	if conf then
-		for line in conf:lines() do
-			local setting = line:split("=")
-			if #setting == 2 then
-				if setting[1]:trim() == "mod_location" then
-					if core.is_dir(setting[2]:trim()) then
-						return setting[2]:trim()
-					else
-						print(home .. "/.mtpm.conf : given modpath does not exist!")
-						return
-					end
-				end
-			end
+local function doinstall(dir, basefolder, basename)
+	if basename then
+		local targetpath = core.get_modpath() .. DIR_DELIM .. basename
+		
+		if core.is_dir(targetpath) then
+			return false, fgettext("$1 is already installed at $2!", basename, targetpath)
 		end
-		conf:close()
+		
+		if not core.copy_dir(basefolder.path, targetpath) then
+			return false, fgettext("Failed to install $1 to $2", basename, targetpath)
+		end
+	else
+		return false, fgettext("Install Mod: unable to find suitable foldername for modpack $1", basename)
 	end
-
-	local dir = home .. "/.minetest/mods/"
-	if core.is_dir(dir) then
-		return dir
-	end
-
-	return
+	core.delete_dir(dir)
+	return true, nil
 end
 
-function mtpm.prepare_archive(filepath, basename)
-	if modfile.type == "zip" then
-		local tempfolder = os.tempfolder()
-
-		if tempfolder ~= nil and
-			tempfolder ~= "" then
-			core.create_dir(tempfolder)
-			if core.extract_zip(modfile.name,tempfolder) then
-				return tempfolder
-			end
+function mtpm.install(dir, basename, basename_is_certain, check_is_type)
+	local basefolder = mtpm.get_base_folder(dir)
+	
+	if check_is_type then
+		if check_is_type == "mod" and basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
+			return false, fgettext("Failed to install $1 : it is not a mod or modpack", modpath)
+		elseif check_is_type ~= basefolder.type then
+			return false, fgettext("Failed to install $1 : it is not $2", modpath, check_is_type)
 		end
 	end
-	local modfile = mtpm.identify_filetype(modfilename)
-	local modpath = mtpm.extract(modfile)
-	return modpath
-end
-
-function mtpm.install_mod(modpath, basename)
-	if modpath == nil then
-		gamedata.errormessage = fgettext("Install Mod: file: \"$1\"", modfile.name) ..
-			fgettext("\nInstall Mod: unsupported filetype \"$1\" or broken archive", modfile.type)
-		return
-	end
-
-	local basefolder = modmgr.getbasefolder(modpath)
 
 	if basefolder.type == "modpack" then
-		local clean_path = nil
+		local clean_packname
 
-		if basename ~= nil then
-			clean_path = "mp_" .. basename
-		end
-
-		if clean_path == nil then
-			clean_path = get_last_folder(cleanup_path(basefolder.path))
-		end
-
-		if clean_path ~= nil then
-			local targetpath = core.get_modpath() .. DIR_DELIM .. clean_path
-			if not core.copy_dir(basefolder.path,targetpath) then
-				gamedata.errormessage = fgettext("Failed to install $1 to $2", basename, targetpath)
-			end
+		if basename then
+			clean_packname = "mp_" .. basename
 		else
-			gamedata.errormessage = fgettext("Install Mod: unable to find suitable foldername for modpack $1", modfilename)
+			-- TODO: better basename creation.
+			clean_packname = "mp_1"
 		end
+
+		return doinstall(dir, basefolder, clean_packname)
 	end
 
 	if basefolder.type == "mod" then
-		local targetfolder = basename
+		local clean_modname = basename
 
-		if targetfolder == nil then
-			targetfolder = modmgr.identify_modname(basefolder.path,"init.lua")
+		if not clean_modname or not basename_is_certain or not mtpm.isValidModname(clean_modname) then
+			local res = mtpm.identify_modname(basefolder.path, "init.lua")
+			if res and res ~= clean_modname then
+				clean_modname = res
+			end
 		end
 
-		--if heuristic failed try to use current foldername
-		if targetfolder == nil then
-			targetfolder = get_last_folder(basefolder.path)
-		end
-
-		if targetfolder ~= nil and modmgr.isValidModname(targetfolder) then
-			local targetpath = core.get_modpath() .. DIR_DELIM .. targetfolder
-			core.copy_dir(basefolder.path,targetpath)
-		else
-			gamedata.errormessage = fgettext("Install Mod: unable to find real modname for: $1", modfilename)
-		end
+		return doinstall(dir, basefolder, clean_modname)
 	end
-
-	core.delete_dir(modpath)
 end
 
 if core.is_standalone then
@@ -329,25 +361,33 @@ if core.is_standalone then
 			conf:close()
 		end
 	elseif arg[1]:trim() == "install" then
-		local modloc = mtpm.get_modlocation()
+		local modloc = core.get_modpath()
 
 		if modloc then
-			-- file run directly
-			local package_name = arg[2]
-			print("Searching for " .. package_name)
-
-			-- Download from the internet
-			local modpath = mtpm.fetch(package_name)
-			
-			if modpath then
-				-- Extract
-				local tempfolder = os.tempfolder()
-				core.extract_zip(modpath, tempfolder)
-				
-				-- Check
-				print(mtpm.get_base_folder(tempfolder).path)
-			else
-				print("Package not found")
+			for i = 2, #arg do
+				-- file run directly
+				local package_name = arg[i]
+				print("Searching for " .. package_name)
+	
+				-- Download from the internet
+				local details = mtpm.fetch(package_name)
+				print(details.path)
+				if details then
+					-- Extract
+					local tempfolder = os.tempfolder()
+					core.extract_zip(details.path, tempfolder)
+					
+					-- Check
+					print(mtpm.get_base_folder(tempfolder).path)
+					
+					-- Install
+					local suc, msg = mtpm.install(tempfolder, details.basename, details.basename_is_certain)
+					if not suc then
+						print(msg)
+					end
+				else
+					print("Package not found")
+				end
 			end
 		else
 			print("Unable to find the mods/ directory. Fix using:")

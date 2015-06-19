@@ -6,7 +6,7 @@ function mtpm.get_base_folder(path)
 		}
 	end
 
-	local testfile = io.open(path .. mtpm.DIR_DELIM .. "init.lua", "r")
+	local testfile = io.open(path .. DIR_DELIM .. "init.lua", "r")
 	if testfile then
 		testfile:close()
 		return {
@@ -15,7 +15,7 @@ function mtpm.get_base_folder(path)
 		}
 	end
 
-	testfile = io.open(path .. mtpm.DIR_DELIM .. "modpack.txt", "r")
+	testfile = io.open(path .. DIR_DELIM .. "modpack.txt", "r")
 	if testfile then
 		testfile:close()
 		return {
@@ -35,23 +35,23 @@ function mtpm.get_base_folder(path)
 		}
 	end
 
-	testfile = io.open(path .. mtpm.DIR_DELIM .. subdirs[1] ..
-			mtpm.DIR_DELIM .."init.lua", "r")
+	testfile = io.open(path .. DIR_DELIM .. subdirs[1] ..
+			DIR_DELIM .."init.lua", "r")
 	if testfile then
 		testfile:close()
 		return {
 			type = "mod",
-			path = path .. mtpm.DIR_DELIM .. subdirs[1]
+			path = path .. DIR_DELIM .. subdirs[1]
 		}
 	end
 
-	testfile = io.open(path .. mtpm.DIR_DELIM .. subdirs[1] ..
-			mtpm.DIR_DELIM .. "modpack.txt", "r")
+	testfile = io.open(path .. DIR_DELIM .. subdirs[1] ..
+			DIR_DELIM .. "modpack.txt", "r")
 	if testfile then
 		testfile:close()
 		return {
 			type = "modpack",
-			path = path .. mtpm.DIR_DELIM .. subdirs[1]
+			path = path .. DIR_DELIM .. subdirs[1]
 		}
 	end
 
@@ -66,8 +66,9 @@ function mtpm.identify_modname(modpath, filename)
 		filename = "init.lua"
 	end
 
-	local testfile = io.open(modpath .. mtpm.DIR_DELIM .. filename, "r")
+	local testfile = io.open(modpath .. DIR_DELIM .. filename, "r")
 	if testfile then
+		print("testing")
 		local line = testfile:read()
 
 		while line do
@@ -76,10 +77,12 @@ function mtpm.identify_modname(modpath, filename)
 			if line:find("minetest.register_tool") or
 					line:find("minetest.register_craftitem") or
 					line:find("minetest.register_node") then
+				print("register")
 				modname = mtpm.parse_register_line(line)
 			end
 
 			if line:find("dofile") then
+				print("dofile")
 				modname = mtpm.parse_dofile_line(modpath,line)
 			end
 
@@ -118,18 +121,19 @@ function mtpm.parse_register_line(line)
 	end
 end
 
-function mtpm.parse_dofile_line(modpath,line)
-	local pos1 = line:find("\"")
-	local pos2
-	if pos1 then
-		pos2 = line:find("\"", pos1 + 1)
-	end
+function mtpm.parse_dofile_line(modpath, line)
+	local arr = line:split("\"")
+	
+	if #arr > 1 then
+		i = 2
+		while i <= #arr do
+			local filename = arr[i]:trim()
 
-	if pos1 and pos2 then
-		local filename = line:sub(pos1 + 1, pos2 - 1)
-
-		if filename and filename ~= "" and filename:find(".lua") then
-			return mtpm.identify_modname(modpath,filename)
+			if filename and filename ~= "" and filename:find(".lua") then
+				return mtpm.identify_modname(modpath, filename)
+			end
+			
+			i = i + 2
 		end
 	end
 end
