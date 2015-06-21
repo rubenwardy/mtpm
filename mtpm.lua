@@ -122,6 +122,12 @@ function mtpm.parse_query(query)
 		}
 	end
 
+	if core.file_exists(query) then
+		return {
+			archive = query
+		}
+	end
+
 
 	local username, packagename = string.match(query, "^([%a%d_]+)/([%a%d_]+)")
 	if username and packagename then
@@ -215,17 +221,25 @@ if debug.getinfo(2) then
 			-- Parse query and get URL
 			local details, msg = mtpm.parse_query(query)
 			if details then
-				if not details.url then
+				if not details.url and not details.archive then
 					print("Searching repositories...")
 					mtpm.search_repos(details)
 				end
 
 				-- Download
-				if details.url then
-					local tmp = os.tempfolder()
-					print("Downloading from " .. details.url)
-					if core.download_file(details.url, tmp .. "tmp.zip") then
-						details.archive = tmp .. "tmp.zip"
+				if details.archive or details.url then
+					if not details.archive then
+						print("Downloading from " .. details.url)
+						local tmp = os.tempfolder()
+						if core.download_file(details.url, tmp .. "tmp.zip") then
+							details.archive = tmp .. "tmp.zip"
+						else
+							failed = failed + 1
+							print("Could not download " .. details.url)
+						end
+					end
+
+					if details.archive then
 						print("Installing...")
 						local suc, msg = mtpm.install_archive(details, override)
 						if suc == 1 then
@@ -237,9 +251,6 @@ if debug.getinfo(2) then
 							failed = failed + 1
 							print(msg)
 						end
-					else
-						failed = failed + 1
-						print("Could not download " .. details.url)
 					end
 				else
 					print("Could not find " .. details.basename)
