@@ -22,9 +22,9 @@ $ ./mtpm.lua install package1 package2 package3
 
 # A query can be in one of these forms:
 #	basename - gets from repos (eg: mmdb, ModSearch)
-#	author/basename - tries github then repos.
+#	author/basename - gets from repos (eg: mmdb, ModSearch)
 #	basename@repo - gets the package from the repo specified.
-#	http://url/to/download/ - downloads archive from this mod
+#	http://url/to/download/ - downloads archive from this url
 # Planned (not done yet):
 #	http://github.com/author/repo/
 #	http://github.com/author/repo.git
