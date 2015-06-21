@@ -33,7 +33,9 @@ end
 fgettext = fgettext or function(str, ...)
 	for i = 1, #arg do
 		local item = arg[i]
-		str = str:replace("$" .. i, item)
+		if item then
+			str = str:replace("$" .. i, item)
+		end
 	end
 	return str
 end

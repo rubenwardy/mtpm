@@ -51,7 +51,7 @@ local function doinstall_mod(dir, basefolder, basename, override)
 			return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
 		end
 	else
-		return 0, fgettext("Install Mod: unable to find suitable foldername for modpack $1", basename)
+		return 0, fgettext("Install Mod: unable to find suitable foldername for $1", dir)
 	end
 
 	core.delete_dir(dir)
@@ -115,6 +115,14 @@ function mtpm.parse_query(query)
 
 	query = query:trim()
 	local retval = {}
+
+	if query:sub(1, 4) == "http" and query:find(":") <= 6 then
+		return {
+			url = query
+		}
+	end
+
+
 	local username, packagename = string.match(query, "^([%a%d_]+)/([%a%d_]+)")
 	if username and packagename then
 		retval.author = username:trim()
