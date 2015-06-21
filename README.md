@@ -22,19 +22,19 @@ $ ./mtpm.lua install package1 package2 package3
 
 # A query can be in one of these forms:
 #	basename - gets from repos (eg: mmdb, ModSearch)
-#	author/basename - tries github then repos
-# Planned (not done yet):
+#	author/basename - tries github then repos.
+#	basename@repo - gets the package from the repo specified.
 #	http://url/to/download/ - downloads archive from this mod
+# Planned (not done yet):
 #	http://github.com/author/repo/
-#	http://github.com/author/packagename.git
+#	http://github.com/author/repo.git
 #	git://git/url.git - git links
-#	package* - wildchars
-#	packagename>1.0 - versions. Spaces are ignored around >, >=, =.
-#	packagename@repo - gets the package from the repo specified. Spaces are ignored around @
+#	base* - wildchars
+#	basename>1.0 - versions. Spaces are ignored around >, >=, =.
 # Order for non-url queries:
-#  * author/ must be before basename
-#  * versions (eg: =1.0.3) must be after basename
-#  * @repo must be after basename.
+# 	* author/ must be before basename
+#	* versions (eg: =1.0.3) must be after basename
+#	* @repo must be after basename.
 # See ./mtpm.lua --help
 ```
 
