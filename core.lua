@@ -140,6 +140,10 @@ core = core or (function()
 		extract_zip = function(filepath, path)
 			local zfile, err = zip.open(filepath)
 
+			if not zfile then
+				return false
+			end
+
 			local function writefile(file)
 				local idx = #file.filename
 				if file.filename:sub(idx, idx) == DIR_DELIM then
@@ -166,6 +170,8 @@ core = core or (function()
 			end
 
 			zfile:close()
+
+			return true
 		end
 	}
 end)()

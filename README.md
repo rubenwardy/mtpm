@@ -134,7 +134,7 @@ else
 
 ### Helpers
 
-* `mtpm.isValidModname(basename)`
+* `mtpm.isValidBasename(basename)`
 * `mtpm.get_base_folder(path)`
 	* `path` - base to extracted zip.
 	* Returns a table:

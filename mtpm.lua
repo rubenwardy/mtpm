@@ -31,8 +31,8 @@ function mtpm.init(res)
 	end
 end
 
-function mtpm.isValidBasename(modpath)
-	return (modpath:find("-") == nil)
+function mtpm.isValidBasename(basename)
+	return string.match(basename, "^([%a%d_]+)$") == basename
 end
 
 local function doinstall_mod(dir, basefolder, basename, override)
@@ -100,10 +100,11 @@ end
 function mtpm.install_archive(details, override)
 	-- Extract
 	local tempfolder = os.tempfolder()
-	core.extract_zip(details.archive, tempfolder)
-
-	-- Install
-	return mtpm.install_folder(details, tempfolder, override)
+	if core.extract_zip(details.archive, tempfolder) then
+		return mtpm.install_folder(details, tempfolder, override)
+	else
+		return 0, fgettext("Could not extract archive $1", details.archive)
+	end
 end
 
 -- username/password>=version@repo
@@ -129,6 +130,8 @@ function mtpm.parse_query(query)
 					" packagename or username/packagename", query)
 		end
 	end
+
+	retval.repo = string.match(query, "@([%a%d_]+)")
 
 	return retval, nil
 end
@@ -168,9 +171,9 @@ function mtpm.search_in_repo(repo, details)
 		end
 		retval = retval:replace("<basename>", details.basename)
 
-		-- TODO: check URL is not 404, somehow.
-		-- details.url = retval
-		-- return true
+		-- TODO: check URL is not 404, somehow. (it still downloads 404 webpage)
+		details.url = retval
+		return true
 	end
 	return false
 end
@@ -179,10 +182,12 @@ function mtpm.search_repos(details)
 	for i = 1, #mtpm.repos do
 		local repo = mtpm.repos[i]
 
-		if not details.type or repo.type == "" or
-				(details.type == repo.type) then
-			if mtpm.search_in_repo(repo, details) then
-				return details
+		if not details.repo or repo.title:lower() == details.repo:lower() then
+			if not details.type or repo.type == "" or
+					(details.type == repo.type) then
+				if mtpm.search_in_repo(repo, details) then
+					return details
+				end
 			end
 		end
 	end
@@ -197,41 +202,45 @@ if debug.getinfo(2) then
 		local uptodate = 0
 		for i = 2, #args do
 			-- file run directly
-			local query = arg[i]
+			local query = args[i]
 
 			-- Parse query and get URL
 			local details, msg = mtpm.parse_query(query)
-			if not details.url then
-				print("Searching repositories...")
-				mtpm.search_repos(details)
-			end
+			if details then
+				if not details.url then
+					print("Searching repositories...")
+					mtpm.search_repos(details)
+				end
 
-			-- Download
-			if details.url then
-				local tmp = os.tempfolder()
-				print("Downloading...")
-				if core.download_file(details.url, tmp .. "tmp.zip") then
-					details.archive = tmp .. "tmp.zip"
-					print("Installing...")
-					local suc, msg = mtpm.install_archive(details, override)
-					if suc == 1 then
-						done = done + 1
-					elseif suc == 2 then
-						uptodate = uptodate + 1
-						print(msg)
+				-- Download
+				if details.url then
+					local tmp = os.tempfolder()
+					print("Downloading from " .. details.url)
+					if core.download_file(details.url, tmp .. "tmp.zip") then
+						details.archive = tmp .. "tmp.zip"
+						print("Installing...")
+						local suc, msg = mtpm.install_archive(details, override)
+						if suc == 1 then
+							done = done + 1
+						elseif suc == 2 then
+							uptodate = uptodate + 1
+							print(msg)
+						else
+							failed = failed + 1
+							print(msg)
+						end
 					else
 						failed = failed + 1
-						print(msg)
+						print("Could not download " .. details.url)
 					end
 				else
-					failed = failed + 1
-					print("Could not download " .. details.url)
+					print("Could not find " .. details.basename)
+					notfound = notfound + 1
 				end
 			else
-				print("Could not find " .. details.basename)
-				notfound = notfound + 1
-			end
-		end
+				print(msg)
+			end -- end if
+		end -- end for
 		print(done .. " installed, " .. uptodate .. " already installed, "
 				.. failed .. " failed and " .. notfound
 				.. " could not be found.")
