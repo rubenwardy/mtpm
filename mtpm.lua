@@ -6,116 +6,39 @@ mtpm = {}
 
 function mtpm.init(res)
 	mtpm.res = res
+	mtpm.repos = {}
 	dofile(mtpm.res .. "core.lua")
 	dofile(mtpm.res .. "identify.lua")
-end
 
-function mtpm.isValidModname(modpath)
-	return (modpath:find("-") == nil)
-end
-
-function mtpm.fetch(package_name, skip_check_repos)
-	print("Searching for " .. package_name)
-	local tmp
-	local username, packagename = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+)/?$")
-	if username and packagename then
-		tmp = tmp or os.tempfolder()
-		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
-			return {
-				path = tmp .. "tmp.zip",
-				basename = packagename,
-				basename_is_certain = false
-			}
-		end
-	end
-
-	local username, packagename = string.match(package_name:trim(), "^([%a%d_]+)/([%a%d_]+)$")
-	if username and packagename then
-		tmp = tmp or os.tempfolder()
-		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
-			return {
-				path = tmp .. "tmp.zip",
-				basename = packagename,
-				basename_is_certain = false
-			}
-		end
-	end
-
-	local username, packagename = string.match(package_name:trim(), "github.com/([%a%d_]+)/([%a%d_]+).git$")
-	if username and packagename then
-		tmp = tmp or os.tempfolder()
-		if core.download_file("https://github.com/" .. username .. "/" .. packagename .. "/archive/master.zip", tmp .. "tmp.zip") then
-			return {
-				path = tmp .. "tmp.zip",
-				basename = packagename,
-				basename_is_certain = false
-			}
-		end
-	end
-
-	if package_name:sub(1, 4) == "http" and package_name:find(":") <= 6 then
-		tmp = tmp or os.tempfolder()
-		core.download_file(package_name, tmp .. "tmp.zip")
-		return {
-			path = tmp .. "tmp.zip"
-		}
-	end
-
-	local file = io.open(package_name, "rb")
-	if file then
-		file:close()
-		return {
-			path = package_name
-		}
-	end
-	
+	-- Read repository lists
 	local repos = io.open(mtpm.res .. "repositories.csv", "r")
-	if not skip_check_repos and repos then
+	if repos then
 		for line in repos:lines() do
 			local fields = line:split(",")
-			if fields[1]:trim():lower() ~= "title" then
-				print("Looking in " .. fields[1]:trim())
-				local res = mtpm.fetch_from_repo(package_name, fields)
-				if res then
-					return res
-				end
+			if line:trim():sub(1, 1) ~= "#" and #fields == 4
+					and fields[1]:lower() ~= "title" then
+				table.insert(mtpm.repos, {
+					title = fields[1]:trim(),
+					type = fields[2]:trim(),
+					format = fields[3]:trim(),
+					url = fields[4]:trim()
+				})
 			end
 		end
 		repos:close()
+	else
+		print("Unable to read " .. mtpm.res .. "repositories.csv")
 	end
 end
 
-function mtpm.fetch_from_repo(package_name, fields)
-	if fields[3]:trim() == "CSV" then
-		local tmp = os.tempfolder()
-		if core.download_file(fields[4], tmp .. "repo.csv") then
-			local repo = io.open(tmp .. "repo.csv", "r")
-			if repo then
-				for line in repo:lines() do
-					local fields = line:split(",")
-					if fields[1]:trim():find(package_name) then
-						print("Found " .. fields[1]:trim())
-						local res = mtpm.fetch(fields[2]:trim(), true)
-						local basename = string.match(package_name:trim(), "^([%a%d_]+)$")
-						if basename then
-							res.basename = basename
-							res.basename_is_certain = true
-						end
-						res.title = fields[1]:trim()
-						res.forum = fields[3]:trim()
-						return res
-					end
-				end
-				repo:close()
-			end
-		end
-	end
+function mtpm.isValidBasename(modpath)
+	return (modpath:find("-") == nil)
 end
 
 local function doinstall_mod(dir, basefolder, basename, override)
 	if basename then
 		local targetpath = core.get_modpath() .. DIR_DELIM .. basename
-		
+
 		if core.is_dir(targetpath) then
 			if override then
 				core.delete_dir(targetpath)
@@ -123,7 +46,7 @@ local function doinstall_mod(dir, basefolder, basename, override)
 				return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
 			end
 		end
-		
+
 		if not core.copy_dir(basefolder.path, targetpath) then
 			return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
 		end
@@ -135,13 +58,13 @@ local function doinstall_mod(dir, basefolder, basename, override)
 	return 1, nil
 end
 
-function mtpm.install_folder(dir, basename, is_basename_certain, check_is_type, override)
+function mtpm.install_folder(details, dir, override)
 	local basefolder = mtpm.get_base_folder(dir)
-	
-	if check_is_type then
-		if check_is_type == "mod" and basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
+
+	if details.type then
+		if details.type == "mod" and basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
 			return 0, fgettext("Failed to install $1 : it is not a mod or modpack", modpath)
-		elseif check_is_type ~= basefolder.type then
+		elseif details.type ~= basefolder.type then
 			return 0, fgettext("Failed to install $1 : it is not $2", modpath, check_is_type)
 		end
 	end
@@ -149,89 +72,173 @@ function mtpm.install_folder(dir, basename, is_basename_certain, check_is_type, 
 	if basefolder.type == "modpack" then
 		local clean_packname
 
-		if basename then
-			clean_packname = "mp_" .. basename
+		if details.basename then
+			clean_packname = "mp_" .. details.basename
 		else
 			-- TODO: better basename creation.
 			clean_packname = "mp_1"
 		end
 
 		return doinstall_mod(dir, basefolder, clean_packname, override)
-	end
+	elseif basefolder.type == "mod" then
+		local clean_modname = details.basename
 
-	if basefolder.type == "mod" then
-		local clean_modname = basename
-
-		if not clean_modname or not is_basename_certain or not mtpm.isValidModname(clean_modname) then
-			local res = mtpm.identify_modname(basefolder.path, "init.lua")
+		if not clean_modname or not details.is_basename_certain or
+				not mtpm.isValidBasename(clean_modname) then
+			local res = mtpm.identify_modname(basefolder.path)
 			if res and res ~= clean_modname then
 				clean_modname = res
 			end
 		end
 
 		return doinstall_mod(dir, basefolder, clean_modname, override)
-	end
-end
-
-function mtpm.install(package_name, reinstall, override)
-	override = override or reinstall
-	-- TODO: if reinstall is true, make it get the same version.
-	local details = mtpm.fetch(package_name)
-	return mtpm.install_archive(package_name, details, override)
-end
-
-function mtpm.install_archive(package_name, details, override)
-	if details then
-		-- Extract
-		local tempfolder = os.tempfolder()
-		core.extract_zip(details.path, tempfolder)
-
-		-- Install
-		return mtpm.install_folder(tempfolder, details.basename,
-				details.basename_is_certain, nil, override)
 	else
-		return 3, fgettext("Unable to locate $1!", package_name)
+		return 0, fgettext("Invalid folder type!", modpath, check_is_type)
 	end
 end
 
-function command_install(args, reinstall, override)
-	local modloc = core.get_modpath()
-	
-	if modloc and core.is_dir(modloc) then
+function mtpm.install_archive(details, override)
+	-- Extract
+	local tempfolder = os.tempfolder()
+	core.extract_zip(details.archive, tempfolder)
+
+	-- Install
+	return mtpm.install_folder(details, tempfolder, override)
+end
+
+-- username/password>=version@repo
+function mtpm.parse_query(query)
+	if not query then
+		return nil, fgettext("Invalid empty query $1", query)
+	end
+
+	query = query:trim()
+	local retval = {}
+	local username, packagename = string.match(query, "^([%a%d_]+)/([%a%d_]+)")
+	if username and packagename then
+		retval.author = username:trim()
+		retval.basename = packagename:trim()
+		query = query:sub(#username + #packagename + 2, #query):trim()
+	else
+		local packagename = string.match(query, "^([%a%d_]+)")
+		if packagename and packagename:trim() ~= "" then
+			retval.basename = packagename:trim()
+			query = query:sub(#packagename + 1, #query):trim()
+		else
+			return nil, fgettext("Invalid query $1; Needs to start with" ..
+					" packagename or username/packagename", query)
+		end
+	end
+
+	return retval, nil
+end
+
+function mtpm.search_in_repo(repo, details)
+	-- JSON-QUERY
+	if repo.format == "json-q" then
+		local tmp = os.tempfolder()
+		if not core.download_file(repo.url .. "?q=" .. details.basename,
+				tmp .. "tmp.json") then
+			return false
+		end
+
+		local f = io.open(tmp .. "tmp.json", "r")
+		if not f then
+			return false
+		end
+		local data = core.parse_json(f:read("*all"))
+		f:close()
+
+		if details.author and data.author ~= details.author then
+			return false
+		end
+
+		if data and not data.error and data.download then
+			details.url = data.download
+			return true
+		end
+
+	-- DIRECT downloads
+	elseif repo.format == "direct" then
+		local retval = repo.url
+		if details.author then
+			retval = retval:replace("<author>", details.author)
+		elseif retval:find("<author>") > 0 then
+			return false
+		end
+		retval = retval:replace("<basename>", details.basename)
+
+		-- TODO: check URL is not 404, somehow.
+		-- details.url = retval
+		-- return true
+	end
+	return false
+end
+
+function mtpm.search_repos(details)
+	for i = 1, #mtpm.repos do
+		local repo = mtpm.repos[i]
+
+		if not details.type or repo.type == "" or
+				(details.type == repo.type) then
+			if mtpm.search_in_repo(repo, details) then
+				return details
+			end
+		end
+	end
+end
+
+if debug.getinfo(2) then
+	local function command_install(args, reinstall, override)
+		override = override or reinstall
 		local done     = 0
 		local failed   = 0
 		local notfound = 0
 		local uptodate = 0
 		for i = 2, #args do
 			-- file run directly
-			local package_name = arg[i]
+			local query = arg[i]
 
-			-- Download from the internet
-			local suc, msg = mtpm.install(package_name, install, override)
-			if suc == 1 then
-				done = done + 1
-			elseif suc == 2 then
-				uptodate = uptodate + 1
-				print(msg)
-			elseif suc == 3 then
-				notfound = notfound + 1
-				print(msg)
+			-- Parse query and get URL
+			local details, msg = mtpm.parse_query(query)
+			if not details.url then
+				print("Searching repositories...")
+				mtpm.search_repos(details)
+			end
+
+			-- Download
+			if details.url then
+				local tmp = os.tempfolder()
+				print("Downloading...")
+				if core.download_file(details.url, tmp .. "tmp.zip") then
+					details.archive = tmp .. "tmp.zip"
+					print("Installing...")
+					local suc, msg = mtpm.install_archive(details, override)
+					if suc == 1 then
+						done = done + 1
+					elseif suc == 2 then
+						uptodate = uptodate + 1
+						print(msg)
+					else
+						failed = failed + 1
+						print(msg)
+					end
+				else
+					failed = failed + 1
+					print("Could not download " .. details.url)
+				end
 			else
-				failed = failed + 1
-				print(msg)
+				print("Could not find " .. details.basename)
+				notfound = notfound + 1
 			end
 		end
-		print(done .. " installed, " .. uptodate .. " already installed, " .. failed .. " failed and " .. notfound .. " could not be found.")
-	else
-		print("Unable to find the mods/ directory. Fix using:")
-		print("mtpm config mod_location /path/to/mods/")
-		print(" (if you have already done this, check that the directory exists.)")
+		print(done .. " installed, " .. uptodate .. " already installed, "
+				.. failed .. " failed and " .. notfound
+				.. " could not be found.")
 	end
-end
 
-if debug.getinfo(2) then
 	mtpm.init("")
-	
+
 	local count = 0
 	function os.tempfolder()
 		count = count + 1
@@ -241,7 +248,7 @@ if debug.getinfo(2) then
 		core.create_dir("tmp/tmp_" .. count)
 		return "tmp/tmp_" .. count .. "/"
 	end
-	
+
 	--
 	-- Command Line Arguments and Options parser
 	--
@@ -254,7 +261,7 @@ if debug.getinfo(2) then
 	local tmp_help = opt.print_help
 	function opt.print_help()
 		tmp_help()
-		
+
 		print("\nCommands:")
 		print("  install package1 [package2] ...")
 		print("  update package1 [package2] ...")
@@ -299,7 +306,7 @@ if debug.getinfo(2) then
 		opt.print_help()
 		os.exit(1)
 	end
-	
+
 	--
 	-- Do Commands
 	--
@@ -337,7 +344,18 @@ if debug.getinfo(2) then
 						arg[3]:trim() .. "\n")
 			conf:close()
 		end
-	elseif command == "install" then
+		print("Set setting " .. arg[2]:trim() .. "!")
+	end
+
+	local modloc = core.get_modpath()
+	if not modloc or not core.is_dir(modloc) then
+		print("Unable to find the mods/ directory. Fix using:")
+		print("mtpm config mod_location /path/to/mods/")
+		print(" (if you have already done this, check that the directory exists.)")
+		os.exit(-1)
+	end
+
+	if command == "install" then
 		command_install(args, options.reinstall, options.reinstall)
 	elseif command == "update" then
 		command_install(args, false, true)

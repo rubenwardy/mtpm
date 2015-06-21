@@ -1,2 +1,3 @@
 Title, Media, Format, URL
-MT-GitSync, mods, CSV, https://raw.githubusercontent.com/mdoege/MT-GitSync/master/big_modlist_edit.csv
+ModSearch, mods, json-q, http://nimg.pf-control.de/MTstuff/modSearchAPI.php
+Github, , direct, https://github.com/<author>/<basename>/archive/master.zip

@@ -2,6 +2,10 @@ string.trim = string.trim or function(self)
 	return (self:gsub("^%s*(.-)%s*$", "%1"))
 end
 
+string.replace = string.replace or function(self, from, to)
+	return self:gsub("%" .. from, to)
+end
+
 string.split = string.split or function(self, delim, include_empty, max_splits, sep_is_pattern)
 	delim = delim or ","
 	max_splits = max_splits or -1
@@ -27,7 +31,10 @@ string.split = string.split or function(self, delim, include_empty, max_splits, 
 end
 
 fgettext = fgettext or function(str, ...)
-	-- TODO: support fgettext in standalone
+	for i = 1, #arg do
+		local item = arg[i]
+		str = str:replace("$" .. i, item)
+	end
 	return str
 end
 
@@ -35,9 +42,19 @@ DIR_DELIM = DIR_DELIM or "/"
 core = core or (function()
 	local zip  = require("zip")
 	local lfs  = require("lfs")
+	local json = require("json")
 	--local curl = require "luacurl"
 	return {
+		parse_json = json.decode,
 		is_standalone = true,
+		file_exists = function(filepath)
+			f = io.open(filepath, "rb")
+			if f then
+				f:close()
+				return true
+			end
+			return false
+		end,
 		is_dir = function(directory)
 			return (lfs.attributes(directory, "mode") == "directory")
 		end,
@@ -67,7 +84,7 @@ core = core or (function()
 		end,
 		get_modpath = function()
 			local home = os.getenv("HOME")
-		
+
 			conf = io.open(home .. "/.mtpm.conf")
 			if conf then
 				for line in conf:lines() do
@@ -85,19 +102,24 @@ core = core or (function()
 				end
 				conf:close()
 			end
-		
+
 			local dir = home .. "/.minetest/mods/"
 			if core.is_dir(dir) then
 				return dir
 			end
-		
+
 			return
 		end,
 		download_file = function(url, filename)
 			-- TODO: fix this (security issue)
 			os.execute("wget " .. url .. " -O " .. filename .. " > /tmp/bleg.txt 2>&1")
 			if true then
-				return true
+				f = io.open(filename, "rb")
+				if f then
+					f:close()
+					return true
+				end
+				return false
 			end
 
 			print("doing")

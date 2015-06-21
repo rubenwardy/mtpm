@@ -13,24 +13,28 @@ Some code taken from the existing mod manager in builtin/mainmenu/.
 $ sudo apt-get install lua luarocks libzzip-dev
 $ sudo luarocks install luazip
 $ sudo luarocks install luafilesystem
+$ sudo luarocks install luajson
 
 # You can skip this line if mods are in ~/.minetest/mods/
 $ ./mtpm.lua config mod_location /path/to/minetest/mods/
 
 $ ./mtpm.lua install package1 package2 package3
 
-# A package name can be in one of these forms:
-#	packagename - gets from repos (eg: mmdb, MT-GitSync)
-#	username/packagename - tries github then repos
-#	http://url/to/download/ - downloads archive from this mod
-#	http://github.com/username/packagename/
-#	http://github.com/username/packagename.git
+# A query can be in one of these forms:
+#	basename - gets from repos (eg: mmdb, ModSearch)
+#	author/basename - tries github then repos
 # Planned (not done yet):
+#	http://url/to/download/ - downloads archive from this mod
+#	http://github.com/author/repo/
+#	http://github.com/author/packagename.git
+#	git://git/url.git - git links
 #	package* - wildchars
 #	packagename>1.0 - versions. Spaces are ignored around >, >=, =.
-#	git://git/url.git - git links
 #	packagename@repo - gets the package from the repo specified. Spaces are ignored around @
-#	package* >=1.0 @repo - should be in this order.
+# Order for non-url queries:
+#  * author/ must be before basename
+#  * versions (eg: =1.0.3) must be after basename
+#  * @repo must be after basename.
 # See ./mtpm.lua --help
 ```
 
@@ -48,37 +52,88 @@ dofile("mtpm/mtpm.lua")
 mtpm.init("mtpm/")
 ```
 
-### Methods
+### Major Methods
 
 * `mtpm.init(res_path)`
 	* Reads mtpm data (lua files, repository lists) in res_path.
-* `mtpm.install(package_name, reinstall, override)`
-	* `package_name` - the package name, see usage section above.
-	* `reinstall` - boolean, should a mod be reinstalled. (Don't use versions in packagename)
+* `mtpm.parse_query(query)`
+	* returns `details`, `msg` table.
+		* `details` - a details table
+		* `msg` - if details is `nil`, this is the error message
+	* `query` - a string
+		* basename
+		* author/basename
+		* http://url/to/download/
+		* basename@repo (repo, eg: ModSearch)
+		* basename#type (type, eg: mod)
+		* eg: author/basename#mod@modsearch
+		   (note: the #mod above is not needed as modsearch only provides mods.)
+* `mtpm.search_repos(details)`
+	* Adds `url` to `details`, and any other data fetched from the repo (eg: author)
+	* Calls `mtpm.search_in_repo()`
+* `mtpm.search_in_repo(repo, details)`
+	* Searches for the package described by `details` in `repo`
+	* Get `repo` from `mtpm.repos`.
+	* You should check that `repo` provides the type of package `details` describes.
+* `mtpm.install_archive(details, override)`
+	* Extracts archive and calls `mtpm.install_folder()`
+	* returns `suc`, `msg` table.
+		* `suc` - Success code
+			* `0` - failure
+			* `1` - success
+			* `2` - up to date / already installed
+		* `msg` - error message if suc != 1
+	* `details`:
+		* `archive` - filepath to archive
+		* `basename` optional - modname, worldname, subgame name or texturepack name.
+		* `is_basename_certain` - true if basename is from repo, false if it was deduced from URL
+		* `author` optional
+		* `type` optional - the type of package you want to install
+			* `mod`
+			* `game`
+			* `texture`
+			* `world`
 	* `override` - boolean, should an existing folder be deleted and replaced.
-	               Overriden to true if reinstall is true
-* `mtpm.install_archive(package_name, details, override)`
-	* `package_name` - the package name, see usage section above.
-	* `details` - table, minimum `path` to file.
-                  May also contain `basename`, `basename_is_certain`, `title`, `author`, `version`.
+* `mtpm.install_folder(details, dir, override)`
+	* returns `suc`, `msg` table.
+		* `suc` - Success code
+			* `0` - failure
+			* `1` - success
+			* `2` - up to date / already installed
+		* `msg` - error message if suc != 1
+	* `details` - see above.
+	* `dir` - path to extracted folder
 	* `override` - boolean, should an existing folder be deleted and replaced.
-* `mtpm.install_folder(dir, basename, is_basename_certain, check_is_type, override)`
-	* `dir` - folder to install
-	* `basename` - the basename if already known
-	* `is_basename_certain` - true if basename is from repo, false if it was deduced from URL
-	* `check_is_type` - one of:
-		* `nil` - any package type may be reinstalled
-		* "mod" - only install mods and modpacks
-		* "game" - only install subgames
-		* "texture" - only install texture packs
-		* "world" - only install worlds
-* `mtpm.fetch(package_name, skip_check_repos)`
-	* `package_name` - the package name, see usage section above.
-	* `skip_check_repos` - boolean, if true don't look for a package in the repos.
-* `mtpm.fetch_from_repo(package_name, fields)`
-	* Search for a package in a/the repo(s).
-	* `package_name` - the package name, see usage section above.
-	* `fields` - optional, if given this is the row in repositories (the function is recursive)
+
+### Example
+
+```lua
+dofile("mtpm/mtpm.lua")
+mtpm.init("mtpm/")
+
+local details, msg = mtpm.parse_query("username/basename")
+if not details.url then
+	print("Searching repositories...")
+	mtpm.search_repos(details)
+end
+
+if details.url then
+	print("Downloading...")
+	if core.download_file(details.url, "tmp.zip") then
+		print("Installing...")
+		details.archive = "tmp.zip"
+		local suc, msg = mtpm.install_archive(details, override)
+		if suc ~= 1 then
+			print(msg)
+		end
+	else
+		print("Could not download " .. details.url)
+	end
+else
+```
+
+### Helpers
+
 * `mtpm.isValidModname(basename)`
 * `mtpm.get_base_folder(path)`
 	* `path` - base to extracted zip.
@@ -86,7 +141,7 @@ mtpm.init("mtpm/")
 		* `type` - "mod", "modpack", "texture", "game", "world" or "invalid"
 		* `path` - path to the folder. Note that it may not be the path in the parameter,
 		           as there may be superfluous folders.
-                   Eg: parameter was mymod/, init.lua is in mymod/mymod-master/, path passed out is mymod/mymod-master/
+		           Eg: parameter was mymod/, init.lua is in mymod/mymod-master/, path passed out is mymod/mymod-master/
 * `mtpm.identify_modname(modpath, filename)`
 	* Finds the modname / basename by looking in lua files
 	* `modpath` - path to the extracted zip.
