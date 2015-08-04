@@ -21,7 +21,7 @@ SYNOPSIS
   if options.help then opt.print_help(); os.exit(1) end
   if options.force then print 'f' end
   for _, name in ipairs(args) do print(name) end
-      
+
 DESCRIPTION
 
   This library provides a command-line parsing[1] similar to Python optparse [2-3].
@@ -29,30 +29,30 @@ DESCRIPTION
   Note: Python also supports getopt [4].
 
 STATUS
-  
+
   This module is fairly basic but could be expanded.
-  
+
 API
 
   See source code and also compare to Python's docs [2,3] for details because
   the following documentation is incomplete.
-  
+
   opt = OptionParser {usage=usage, version=version, add_help_option=add_help_option}
-  
+
     Create command line parser.
-  
+
   opt.add_options{shortflag, longflag, action=action, metavar=metavar, dest=dest, help=help}
-  
+
     Add command line option specification.  This may be called multiple times.
- 
+
   opt.parse_args() --> options, args
-  
+
     Perform argument parsing.
- 
+
 DEPENDENCIES
 
   None (other than Lua 5.1 or 5.2)
-  
+
 REFERENCES
 
   [1] http://lua-users.org/wiki/CommandLineParsing
@@ -86,7 +86,7 @@ LICENSE
  --]]
 
  local M = {_TYPE='module', _NAME='pythonic.optparse', _VERSION='0.3.20111128'}
- 
+
 local ipairs = ipairs
 local unpack = unpack
 local io = io
@@ -196,7 +196,7 @@ local function OptionParser(t)
   end
   if t.version then
     o.add_option{"--version", action="store_true", dest="version",
-                 help="output version info."}
+                 help="show mtpm version info"}
   end
   return o
 end
