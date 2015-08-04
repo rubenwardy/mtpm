@@ -121,6 +121,7 @@ core = core or (function()
 					f:close()
 					return true
 				end
+				print("Download failed: " .. url)
 				return false
 			end
 

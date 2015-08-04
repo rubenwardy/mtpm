@@ -80,8 +80,21 @@ function mtpm.search_in_repo(repo, details)
 			return false
 		end
 
+		if not data or data.error or not data.title then
+			return false
+		end
+
+		if details.basename then
+			local basename = string.match(data.title, "%[([%a%d_]+)%]")
+			if details.basename ~= basename then
+				print("   - Wrong result: " .. data.title .. ". Wanted " .. details.basename)
+				return false
+			end
+		end
+
 		if data and not data.error and data.download then
 			details.url = data.download
+			details.repo = repo.title
 			return true
 		end
 
@@ -97,6 +110,7 @@ function mtpm.search_in_repo(repo, details)
 
 		-- TODO: check URL is not 404, somehow. (it still downloads 404 webpage)
 		details.url = retval
+		details.repo = repo.title
 		return true
 	end
 	return false
@@ -220,15 +234,22 @@ end
 -- @return 2, msg - up to date
 -- @return 3, msg - not found
 function mtpm.install(details)
+	--if details.basename == "default" then
+	--	return 2, fgettext("$1 is already installed (minetest_game)", details.basename)
+	--end
+
 	-- Search in repositories
-	if not details.url and not details.archive then
-		print("Searching repositories...")
-		mtpm.search_repos(details)
+	if not details.url and not details.archive and details.basename then
+		if mtpm.search_repos(details) then
+			print("   - Found " .. details.basename .. " in " .. details.repo)
+		else
+			return 3, "Could not find " .. details.basename
+		end
 	end
 
 	-- Download
-	if details.url and  not details.archive then
-		print("Downloading from " .. details.url)
+	if details.url and not details.archive then
+		print("   - Downloading from " .. details.url)
 		local tmp = os.tempfolder()
 		if core.download_file(details.url, tmp .. "tmp.zip") then
 			details.archive = tmp .. "tmp.zip"
@@ -238,10 +259,10 @@ function mtpm.install(details)
 	end
 
 	if details.archive then
-		print("Installing...")
+		print("   - Installing...")
 		return mtpm.install_archive(details, override)
 	else
-		return 3, "Could not find " .. details.basename
+		return 0, "Error getting archive for " .. details.basename
 	end
 end
 
@@ -321,10 +342,12 @@ if debug.getinfo(2) then
 		local uptodate = 0
 
 		local function run_query_wrapper(query)
+			print(query .. ":")
+
 			if query:sub(#query) == "?" then
 				query = query:sub(1, #query - 1)
 				if not options.yes then
-					print("Skipping optional mod " .. query)
+					print("   - Skipping optional mod " .. query)
 					return
 				end
 			end
@@ -332,7 +355,7 @@ if debug.getinfo(2) then
 			local status, msg = mtpm.run_query(query)
 
 			if msg then
-				print(msg)
+				print("   - " .. msg)
 			end
 
 			if status == 0 then
@@ -358,6 +381,8 @@ if debug.getinfo(2) then
 				for line in f:lines() do
 					run_query_wrapper(line:trim())
 				end
+			else
+				print("Error opening file " .. options.depends)
 			end
 		end
 
