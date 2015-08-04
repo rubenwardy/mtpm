@@ -354,8 +354,10 @@ if debug.getinfo(2) then
 		-- Look for depends.txt files to read
 		if options.depends then
 			f = io.open(options.depends, "r")
-			for line in f:lines() do
-				run_query_wrapper(line:trim())
+			if f then
+				for line in f:lines() do
+					run_query_wrapper(line:trim())
+				end
 			end
 		end
 
