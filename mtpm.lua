@@ -112,7 +112,7 @@ function mtpm.search_in_repo(repo, details)
 
 		for line in f:lines() do
 			local data = line:split(",")
-			if #data == 3 then
+			if #data >= 3 and #data <= 5 then
 				local author = data[1]:trim()
 				local basename = data[2]:trim()
 				local url = data[3]:trim()
