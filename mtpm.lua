@@ -76,13 +76,13 @@ function mtpm.search_in_repo(repo, details)
 		local data = core.parse_json(f:read("*all"))
 		f:close()
 
-		if details.author and data.author:lower() ~= details.author:lower() then
-			return false
-		end
-
 		if not data or data.error or not data.title then
 			return false
 		end
+
+		if details.author and data.author:lower() ~= details.author:lower() then
+			return false
+		end		
 
 		if details.basename then
 			local basename = string.match(data.title, "%[([%a%d_]+)%]")
