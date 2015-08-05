@@ -42,9 +42,13 @@ end
 
 DIR_DELIM = DIR_DELIM or "/"
 core = core or (function()
+	package.path = package.path .. os.getenv("HOME") .. ";" .. "/.luarocks/lib/lua/5.1/?.lua;"
+	package.path = package.path .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.1/?/init.lua;"
+	package.cpath = package.cpath .. ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.1/?.so;"
 	local zip  = require("zip")
 	local lfs  = require("lfs")
 	local json = require("json")
+
 	--local curl = require "luacurl"
 	return {
 		parse_json = json.decode,
