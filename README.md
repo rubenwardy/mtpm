@@ -11,9 +11,11 @@ Some code taken from the existing mod manager in builtin/mainmenu/.
 
 ```Bash
 $ sudo apt-get install lua luarocks libzzip-dev
-$ sudo luarocks install luazip
-$ sudo luarocks install luafilesystem
-$ sudo luarocks install luajson
+
+$ luarocks --local install luazip
+$ luarocks --local install luafilesystem
+$ luarocks --local install luajson
+# Alternatively you could use sudo luarocks install
 
 # You can skip this line if mods are in ~/.minetest/mods/
 $ ./mtpm.lua config mod_location /path/to/minetest/mods/
