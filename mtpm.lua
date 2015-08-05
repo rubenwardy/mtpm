@@ -98,6 +98,42 @@ function mtpm.search_in_repo(repo, details)
 			return true
 		end
 
+	-- CSV-ABU (Author, Basename, URL)
+	elseif repo.format == "csv-abu" then
+		local tmp = os.tempfolder()
+		if not core.download_file(repo.url, tmp .. "tmp.csv") then
+			return false
+		end
+
+		local f = io.open(tmp .. "tmp.csv", "r")
+		if not f then
+			return false
+		end
+
+		for line in f:lines() do
+			local data = line:split(",")
+			if #data == 3 then
+				local author = data[1]:trim()
+				local basename = data[2]:trim()
+				local url = data[3]:trim()
+
+				if details.basename == basename and
+						(not details.author or author == details.author) then
+					details.author = author
+					details.basename = basename
+					local author, repon = string.match(url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
+					if author and repon then
+						url = "http://github.com/" .. author .. "/" .. repon .. "/archive/master.zip"
+					end
+					details.url = url
+					details.repo = repo.title
+					return true
+				end
+			end
+		end
+
+		return false
+
 	-- DIRECT downloads
 	elseif repo.format == "direct" then
 		local retval = repo.url

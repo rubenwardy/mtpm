@@ -1,3 +1,4 @@
 Title, Media, Format, URL
+mtpm_list, mods, csv-abu, http://rubenwardy.com/mt_mod_forum_parser/mods.csv
 ModSearch, mods, json-q, http://nimg.pf-control.de/MTstuff/modSearchAPI.php
 Github, , direct, https://github.com/<author>/<basename>/archive/master.zip
