@@ -76,7 +76,7 @@ function mtpm.search_in_repo(repo, details)
 		local data = core.parse_json(f:read("*all"))
 		f:close()
 
-		if details.author and data.author ~= details.author then
+		if details.author and data.author:lower() ~= details.author:lower() then
 			return false
 		end
 
@@ -118,7 +118,7 @@ function mtpm.search_in_repo(repo, details)
 				local url = data[3]:trim()
 
 				if details.basename == basename and
-						(not details.author or author == details.author) then
+						(not details.author or author:lower() == details.author:lower()) then
 					details.author = author
 					details.basename = basename
 					local author, repon = string.match(url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
