@@ -20,6 +20,47 @@ mtpm = {}
 -- 		* `texture`
 -- 		* `world`
 
+function Config(path)
+	local f = io.open(path, "r")
+	local data = {}
+	if f then
+		local lineno = 0
+		for line in f:lines() do
+			lineno = lineno + 1
+			local arr = line:split("=")
+			if #arr == 2 then
+				data[arr[1]:trim()] = arr[2]:trim()
+			else
+				print("Config: More than one deliminator (=) on line " .. lineno .. " of " .. path)
+			end
+		end
+		f:close()
+	end
+
+	return {
+		_data = data,
+		get = function(self, name)
+			return self._data[name]
+		end,
+		set = function(self, name, value)
+			self._data[name] = value
+		end,
+		save = function(self, save_path)
+			if not save_path then
+				save_path = path
+			end
+
+			local f = io.open(save_path, "w")
+			if f then
+				for name, value in pairs(self._data) do
+					f:write(name .. " = " .. value .. "\n")
+				end
+				f:close()
+			end
+		end
+	}
+end
+
 
 -- Initialise MTPM
 -- @param res_path Path to MTPM's resources
@@ -82,7 +123,7 @@ function mtpm.search_in_repo(repo, details)
 
 		if details.author and data.author:lower() ~= details.author:lower() then
 			return false
-		end		
+		end
 
 		if details.basename then
 			local basename = string.match(data.title, "%[([%a%d_]+)%]")
@@ -455,7 +496,7 @@ if debug.getinfo(2) then
 		print("\nCommands:")
 		print("  install package1 [package2] ...")
 		print("  update package1 [package2] ...")
-		print("  config setting value")
+		print("  set setting value")
 	end
 	opt.add_option({
 		"-h", "--help",
@@ -505,47 +546,16 @@ if debug.getinfo(2) then
 	--
 	-- Do Commands
 	--
-	if command == "config" then
-		local home = os.getenv("HOME")
-
-		local conf = io.open(home .. "/.mtpm.conf")
-		if conf then
-			local added = false
-			local retval = ""
-			for line in conf:lines() do
-				local setting = line:split("=")
-				if #setting == 2 then
-					if not added and setting[1]:trim() == arg[2]:trim() then
-						retval = retval .. arg[2]:trim() .. " = " ..
-								arg[3]:trim() .. "\n"
-						added = true
-					else
-						retval = retval .. setting[1]:trim() .. " = " ..
-								setting[2]:trim() .. "\n"
-					end
-				end
-			end
-			if not added then
-				retval = retval .. arg[2]:trim() .. " = " ..
-						arg[3]:trim() .. "\n"
-			end
-			conf:close()
-			conf = io.open(home .. "/.mtpm.conf", "w")
-			conf:write(retval)
-			conf:close()
-		else
-			conf = io.open(home .. "/.mtpm.conf", "w")
-			conf:write(arg[2]:trim() .. " = " ..
-						arg[3]:trim() .. "\n")
-			conf:close()
-		end
-		print("Set setting " .. arg[2]:trim() .. "!")
+	if command == "set" or command == "config" then
+		local conf = Config(os.getenv("HOME") .. "/.mtpm.conf")
+		conf:set(arg[2]:trim(), arg[3]:trim())
+		conf:save()
 	end
 
 	local modloc = core.get_modpath()
 	if not modloc or not core.is_dir(modloc) then
 		print("Unable to find the mods/ directory. Fix using:")
-		print("mtpm config mod_location /path/to/mods/")
+		print("mtpm set mod_location /path/to/mods/")
 		print(" (if you have already done this, check that the directory exists.)")
 		os.exit(-1)
 	end

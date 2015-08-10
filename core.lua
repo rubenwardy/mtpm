@@ -89,24 +89,13 @@ core = core or (function()
 			return retval
 		end,
 		get_modpath = function()
-			local home = os.getenv("HOME")
-
-			conf = io.open(home .. "/.mtpm.conf")
-			if conf then
-				for line in conf:lines() do
-					local setting = line:split("=")
-					if #setting == 2 then
-						if setting[1]:trim() == "mod_location" then
-							if core.is_dir(setting[2]:trim()) then
-								return setting[2]:trim()
-							else
-								print(home .. "/.mtpm.conf : given modpath does not exist!")
-								return
-							end
-						end
-					end
-				end
-				conf:close()
+			local conf = Config(os.getenv("HOME") .. "/.mtpm.conf")
+			local path = conf:get("mod_location")
+			if core.is_dir(path) then
+				return path
+			elseif path then
+				print(home .. "/.mtpm.conf : given modpath does not exist!")
+				return
 			end
 
 			local dir = home .. "/.minetest/mods/"
