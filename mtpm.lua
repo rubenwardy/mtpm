@@ -65,9 +65,35 @@ end
 -- Initialise MTPM
 -- @param res_path Path to MTPM's resources
 function mtpm.init(res_path)
+	if not res_path then
+		local f = io.open("core.lua", "rb")
+		if f then
+			f:close()
+			res_path = ""
+		else
+			local f = io.open("/usr/local/share/mtpm/core.lua", "rb")
+			if f then
+				f:close()
+				res_path = "/usr/local/share/mtpm/"
+			else
+				local f = io.open("/usr/share/mtpm/core.lua", "rb")
+				if f then
+					f:close()
+					res_path = "/usr/share/mtpm/"
+				else
+					print("Unable to find MTPM's resources!")
+					return
+				end
+			end
+		end
+	end
+
 	mtpm.res = res_path
 	mtpm.repos = {}
-	dofile(mtpm.res .. "core.lua")
+
+	if not core then
+		dofile(mtpm.res .. "core.lua")
+	end
 	dofile(mtpm.res .. "identify.lua")
 
 	-- Read repository lists
@@ -468,7 +494,7 @@ if debug.getinfo(2) then
 				.. " could not be found.")
 	end
 
-	mtpm.init("")
+	mtpm.init()
 
 	local count = 0
 	function os.tempfolder()
