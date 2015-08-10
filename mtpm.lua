@@ -128,8 +128,43 @@ end
 -- Search in specific repo
 -- @return boolean, true is success
 function mtpm.search_in_repo(repo, details)
+	-- JSON Bower
+	if repo.format == "json-bower" then
+		local tmp = os.tempfolder()
+		if not core.download_file(repo.url, tmp .. "tmp.json") then
+			return false
+		end
+
+		local f = io.open(tmp .. "tmp.json", "r")
+		if not f then
+			return false
+		end
+		local data = core.parse_json(f:read("*all"))
+		f:close()
+
+		if not data or #data <= 0 then
+			return false
+		end
+
+		for i = 1, #data do
+			local entry = data[i]
+
+			-- TODO: check author
+
+			if entry.name and entry.url and details.basename == entry.name then
+				details.basename = entry.name
+				local author, repon = string.match(entry.url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
+				if author and repon then
+					entry.url = "http://github.com/" .. author .. "/" .. repon .. "/archive/master.zip"
+				end
+				details.url = entry.url
+				details.repo = repo.title
+				return true
+			end
+		end
+
 	-- JSON-QUERY
-	if repo.format == "json-q" then
+	elseif repo.format == "json-q" then
 		local tmp = os.tempfolder()
 		if not core.download_file(repo.url .. "?q=" .. details.basename,
 				tmp .. "tmp.json") then
@@ -414,7 +449,7 @@ function mtpm.parse_query(query)
 	end
 
 	-- Get repo selectors
-	retval.repo = string.match(query, "@([%a%d_]+)")
+	retval.repo = string.match(query, "@([%a%d_-]+)")
 
 	-- TODO: get versions selectors (>version, >=version)
 	-- TODO: get type selects (#type)

@@ -1,4 +1,5 @@
 Title, Media, Format, URL
+minetest-bower, mods, json-bower, https://minetest-bower.herokuapp.com/packages
 mtpm_mods, mods, csv-abu, http://rubenwardy.com/mtpm_lists/lists/mods.csv
 ModSearch, mods, json-q, http://nimg.pf-control.de/MTstuff/modSearchAPI.php
 Github, , direct, https://github.com/<author>/<basename>/archive/master.zip
