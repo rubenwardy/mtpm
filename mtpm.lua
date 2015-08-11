@@ -189,11 +189,11 @@ if debug.getinfo(2) then
 	local count = 0
 	function os.tempfolder()
 		count = count + 1
-		if core.is_dir("tmp/tmp_" .. count) then
-			core.delete_dir("tmp/tmp_" .. count)
+		if core.is_dir("/tmp/tmp_" .. count) then
+			core.delete_dir("/tmp/tmp_" .. count)
 		end
-		core.create_dir("tmp/tmp_" .. count)
-		return "tmp/tmp_" .. count .. "/"
+		core.create_dir("/tmp/tmp_" .. count)
+		return "/tmp/tmp_" .. count .. "/"
 	end
 
 	--

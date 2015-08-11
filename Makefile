@@ -6,6 +6,7 @@ install:
 	install -m 0755 mtpm $(prefix)/bin
 	-mv mtpm mtpm.lua
 	install -m 0644 *.lua $(prefix)/share/mtpm
+	install -m 0644 *.csv $(prefix)/share/mtpm
 
 uninstall:
 	-rm -f $(prefix)/bin/mtpm
