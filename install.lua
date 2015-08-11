@@ -11,7 +11,7 @@ function mtpm.url_to_download(url)
 
 	local author, repon = string.match(url, "repo.or.cz/([%a%d_-]+)/([%a%d_-]+)")
 	if author and repon then
-		return "http://repo.or.cz/" .. author .. "/" .. repon .. "/snapshot/master.zip"
+		return "http://repo.or.cz/" .. author .. "/" .. repon .. ".git/snapshot/master.zip"
 	end
 
 	return url
@@ -168,12 +168,12 @@ local function doinstall(dir, basefolder, targetpath, override)
 		if override then
 			core.delete_dir(targetpath)
 		else
-			return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
+			return 2, fgettext("already installed at $1!", targetpath)
 		end
 	end
 
 	if not core.copy_dir(basefolder.path, targetpath) then
-		return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
+		return 0, fgettext("Failed to copy $1 to $2", dir, targetpath)
 	end
 
 	core.delete_dir(dir)
@@ -190,10 +190,13 @@ function mtpm.install_folder(details, dir, override)
 
 	-- Check package type is correct
 	if details.type then
-		if details.type == "mod" and basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
-			return 0, fgettext("Failed to install $1 : it is not a mod or modpack", modpath)
+		if details.type == "mod" then
+			if basefolder.type ~= "mod" and basefolder.type ~= "modpack" then
+				return 0, fgettext("Failed to install $1 : it is not a mod or modpack", dir)
+			end
 		elseif details.type ~= basefolder.type then
-			return 0, fgettext("Failed to install $1 : it is not $2", modpath, check_is_type)
+			return 0, fgettext("Failed to install $1 : it is a $2, wanted $3",
+				dir, basefolder.type, details.type)
 		end
 	end
 
@@ -344,6 +347,11 @@ function mtpm.parse_query(query)
 
 	-- Get repo selectors
 	retval.repo = string.match(query, "@([%a%d_-]+)")
+	retval.type = string.match(query, "#([%a%d_-]+)")
+	if retval.type and retval.type ~= "mod" and retval.type ~= "modpack"
+			and retval.type ~= "subgame" then
+		retval.type = nil
+	end
 
 	-- TODO: get versions selectors (>version, >=version)
 	-- TODO: get type selects (#type)
