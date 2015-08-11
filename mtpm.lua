@@ -270,24 +270,26 @@ if debug.getinfo(2) then
 			conf:save()
 		elseif #arg == 2 then
 			print(arg[2]:trim() .. " = " .. conf:get(arg[2]))
+		else
+			opt.print_help()
+			os.exit(1)
 		end
-		os.exit(1)
-	end
-
-	local modloc = core.get_modpath()
-	if not modloc or not core.is_dir(modloc) then
-		print("Unable to find the mods/ directory. Fix using:")
-		print("mtpm set mod_location /path/to/mods/")
-		print(" (if you have already done this, check that the directory exists.)")
-		os.exit(-1)
-	end
-
-	if command == "install" then
-		command_install(args, options, options.reinstall, options.reinstall)
-	elseif command == "update" then
-		command_install(args, options, false, true)
 	else
-		opt.print_help()
-		os.exit(1)
+		local modloc = core.get_modpath()
+		if not modloc or not core.is_dir(modloc) then
+			print("Unable to find the mods/ directory. Fix using:")
+			print("mtpm set mod_location /path/to/mods/")
+			print(" (if you have already done this, check that the directory exists.)")
+			os.exit(-1)
+		end
+
+		if command == "install" then
+			command_install(args, options, options.reinstall, options.reinstall)
+		elseif command == "update" then
+			command_install(args, options, false, true)
+		else
+			opt.print_help()
+			os.exit(1)
+		end
 	end
 end
