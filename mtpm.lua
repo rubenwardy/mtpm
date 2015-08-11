@@ -280,5 +280,8 @@ if debug.getinfo(2) then
 		command_install(args, options, options.reinstall, options.reinstall)
 	elseif command == "update" then
 		command_install(args, options, false, true)
+	else
+		opt.print_help()
+		os.exit(1)
 	end
 end
