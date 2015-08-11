@@ -212,7 +212,7 @@ if debug.getinfo(2) then
 		print("\nCommands:")
 		print("  install package1 [package2] ...")
 		print("  update package1 [package2] ...")
-		print("  set setting value")
+		print("  set setting [value]")
 	end
 	opt.add_option({
 		"-h", "--help",
@@ -264,8 +264,14 @@ if debug.getinfo(2) then
 	--
 	if command == "set" or command == "config" then
 		local conf = Config(os.getenv("HOME") .. "/.mtpm.conf")
-		conf:set(arg[2]:trim(), arg[3]:trim())
-		conf:save()
+		if #arg == 3 then
+			conf:set(arg[2]:trim(), arg[3]:trim())
+			print(arg[2]:trim() .. " = " .. conf:get(arg[2]))
+			conf:save()
+		elseif #arg == 2 then
+			print(arg[2]:trim() .. " = " .. conf:get(arg[2]))
+		end
+		os.exit(1)
 	end
 
 	local modloc = core.get_modpath()
