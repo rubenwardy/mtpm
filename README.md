@@ -17,14 +17,16 @@ $ luarocks --local install luafilesystem
 $ luarocks --local install luajson
 # Alternatively you could use sudo luarocks install
 
+$ sudo make install
+
 # You can skip this line if mods are in ~/.minetest/mods/
-$ ./mtpm.lua config mod_location /path/to/minetest/mods/
+$ mtpm config mod_location /path/to/minetest/mods/
 
 # Install packages
-$ ./mtpm.lua install package1 package2 package3
+$ mtpm install package1 package2 package3
 
 # Install mods from depends.txt
-$ ./mtpm.lua -r depends.txt
+$ mtpm -r depends.txt
 
 # A query can be in one of these forms:
 #	basename - gets from repos (eg: mmdb, ModSearch)
@@ -41,7 +43,7 @@ $ ./mtpm.lua -r depends.txt
 # 	* author/ must be before basename
 #	* versions (eg: =1.0.3) must be after basename
 #	* @repo must be after basename.
-# See ./mtpm.lua --help
+# See mtpm --help
 ```
 
 Please note that this is a work in progress.
