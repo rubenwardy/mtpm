@@ -1,3 +1,23 @@
+function mtpm.url_to_download(url)
+	local author, repon = string.match(url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
+	if author and repon then
+		return "http://github.com/" .. author .. "/" .. repon .. "/archive/master.zip"
+	end
+
+	local author, repon = string.match(url, "bitbucket.org/([%a%d_-]+)/([%a%d_-]+)")
+	if author and repon then
+		return "https://bitbucket.org/" .. author .. "/" .. repon .. "/get/master.zip"
+	end
+
+	local author, repon = string.match(url, "repo.or.cz/([%a%d_-]+)/([%a%d_-]+)")
+	if author and repon then
+		return "http://repo.or.cz/" .. author .. "/" .. repon .. "/snapshot/master.zip"
+	end
+
+	return url
+end
+
+
 -- Search in specific repo
 -- @return boolean, true is success
 function mtpm.search_in_repo(repo, details)
@@ -24,12 +44,9 @@ function mtpm.search_in_repo(repo, details)
 
 			-- TODO: check author
 
-			if entry.name and entry.url and details.basename == entry.name then
+			if entry.name and entry.url
+					and details.basename:lower() == entry.name:lower() then
 				details.basename = entry.name
-				local author, repon = string.match(entry.url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
-				if author and repon then
-					entry.url = "http://github.com/" .. author .. "/" .. repon .. "/archive/master.zip"
-				end
 				details.url = entry.url
 				details.repo = repo.title
 				return true
@@ -61,7 +78,7 @@ function mtpm.search_in_repo(repo, details)
 
 		if details.basename then
 			local basename = string.match(data.title, "%[([%a%d_]+)%]")
-			if details.basename ~= basename then
+			if details.basename:lower() ~= basename:lower() then
 				print("   - Wrong result: " .. data.title .. ". Wanted " .. details.basename)
 				return false
 			end
@@ -92,14 +109,10 @@ function mtpm.search_in_repo(repo, details)
 				local basename = data[2]:trim()
 				local url = data[3]:trim()
 
-				if details.basename == basename and
+				if details.basename:lower() == basename:lower() and
 						(not details.author or author:lower() == details.author:lower()) then
 					details.author = author
 					details.basename = basename
-					local author, repon = string.match(url, "github.com/([%a%d_-]+)/([%a%d_-]+)")
-					if author and repon then
-						url = "http://github.com/" .. author .. "/" .. repon .. "/archive/master.zip"
-					end
 					details.url = url
 					details.repo = repo.title
 					return true
@@ -147,26 +160,20 @@ function mtpm.search_repos(details)
 end
 
 
--- Actually installs a mod
+-- Actually installs a folder
 -- @return 0, msg - failed
 -- @return 1, nil - done
-local function doinstall_mod(dir, basefolder, basename, override)
-	if basename then
-		local targetpath = core.get_modpath() .. DIR_DELIM .. basename
-
-		if core.is_dir(targetpath) then
-			if override then
-				core.delete_dir(targetpath)
-			else
-				return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
-			end
+local function doinstall(dir, basefolder, targetpath, override)
+	if core.is_dir(targetpath) then
+		if override then
+			core.delete_dir(targetpath)
+		else
+			return 2, fgettext("$1 is already installed at $2!", basename, targetpath)
 		end
+	end
 
-		if not core.copy_dir(basefolder.path, targetpath) then
-			return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
-		end
-	else
-		return 0, fgettext("Install Mod: unable to find suitable foldername for $1", dir)
+	if not core.copy_dir(basefolder.path, targetpath) then
+		return 0, fgettext("Failed to install $1 to $2", basename, targetpath)
 	end
 
 	core.delete_dir(dir)
@@ -201,7 +208,7 @@ function mtpm.install_folder(details, dir, override)
 			clean_packname = "mp_1"
 		end
 
-		return doinstall_mod(dir, basefolder, clean_packname, override)
+		return doinstall(dir, basefolder, core.get_modpath() .. DIR_DELIM .. clean_packname, override)
 
 	-- Install mod
 	elseif basefolder.type == "mod" then
@@ -215,11 +222,24 @@ function mtpm.install_folder(details, dir, override)
 			end
 		end
 
-		return doinstall_mod(dir, basefolder, clean_modname, override)
+		return doinstall(dir, basefolder, core.get_modpath() .. DIR_DELIM .. clean_modname, override)
+
+	-- Install subgame
+	elseif basefolder.type == "subgame" then
+		local clean_gamename
+
+		if details.basename then
+			clean_gamename = details.basename
+		else
+			-- TODO: better basename creation.
+			clean_gamename = "game_1"
+		end
+
+		return doinstall(dir, basefolder, core.get_gamepath() .. DIR_DELIM .. clean_gamename, override)
 
 	-- Invalid package type
 	else
-		return 0, fgettext("Unrecognised package type at $1!", dir)
+		return 0, fgettext("Unrecognised package type at $1 ($2)!", dir, basefolder.type)
 	end
 end
 
@@ -260,9 +280,10 @@ function mtpm.install(details)
 
 	-- Download
 	if details.url and not details.archive then
-		print("   - Downloading from " .. details.url)
+		local dl = mtpm.url_to_download(details.url)
+		print("   - Downloading from " .. dl)
 		local tmp = os.tempfolder()
-		if core.download_file(details.url, tmp .. "tmp.zip") then
+		if core.download_file(dl, tmp .. "tmp.zip") then
 			details.archive = tmp .. "tmp.zip"
 		else
 			return 0, "Could not download " .. details.url
@@ -303,7 +324,7 @@ function mtpm.parse_query(query)
 	end
 
 	-- Look for author/basename queries
-	local author, basename = string.match(query, "^([%a%d_]+)/([%a%d_]+)")
+	local author, basename = string.match(query, "^([%a%d_-]+)/([%a%d_-]+)")
 	if author and basename then
 		retval.author = author:trim()
 		retval.basename = basename:trim()
@@ -311,7 +332,7 @@ function mtpm.parse_query(query)
 
 	-- Look for basename queries
 	else
-		local packagename = string.match(query, "^([%a%d_]+)")
+		local packagename = string.match(query, "^([%a%d_-]+)")
 		if packagename and packagename:trim() ~= "" then
 			retval.basename = packagename:trim()
 			query = query:sub(#packagename + 1, #query):trim()

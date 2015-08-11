@@ -40,6 +40,44 @@ fgettext = fgettext or function(str, ...)
 	return str
 end
 
+local function findpath(settingname, mtname)
+	return (function()
+		local home = os.getenv("HOME")
+		local conf = Config(home .. "/.mtpm.conf")
+
+		-- Check mod_location
+		local path = conf:get(settingname.."_location")
+		if path then
+			if core.is_dir(path) then
+				return path .. "/"
+			else
+				print(home .. "/.mtpm.conf : given " .. settingname .. " path does not exist!")
+				return
+			end
+		end
+
+		-- Check minetest_root
+		path = conf:get("minetest_root")
+		if path then
+			path = path  .. "/" .. mtname .. "/"
+			if core.is_dir(path) then
+				return path .. "/"
+			else
+				print(home .. "/.mtpm.conf : $(minetest_root)/" .. mtname .. "/ does not exist!")
+				return
+			end
+		end
+
+		-- Check ~/.minetest/
+		local dir = home .. "/.minetest/" .. mtname .. "/"
+		if core.is_dir(dir) then
+			return dir
+		else
+			return
+		end
+	end)
+end
+
 DIR_DELIM = DIR_DELIM or "/"
 core = core or (function()
 	package.path = package.path .. os.getenv("HOME") .. ";" .. "/.luarocks/lib/lua/5.1/?.lua;"
@@ -88,23 +126,8 @@ core = core or (function()
 			end
 			return retval
 		end,
-		get_modpath = function()
-			local conf = Config(os.getenv("HOME") .. "/.mtpm.conf")
-			local path = conf:get("mod_location")
-			if core.is_dir(path) then
-				return path
-			elseif path then
-				print(home .. "/.mtpm.conf : given modpath does not exist!")
-				return
-			end
-
-			local dir = home .. "/.minetest/mods/"
-			if core.is_dir(dir) then
-				return dir
-			end
-
-			return
-		end,
+		get_modpath = findpath("mod", "mods"),
+		get_gamepath = findpath("subgame", "games"),
 		download_file = function(url, filename)
 			-- TODO: fix this (security issue)
 			os.execute("wget " .. url .. " -O " .. filename .. " > /tmp/bleg.txt 2>&1")

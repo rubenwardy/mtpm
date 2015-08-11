@@ -19,8 +19,9 @@ $ luarocks --local install luajson
 
 $ sudo make install
 
-# You can skip this line if mods are in ~/.minetest/mods/
-$ mtpm config mod_location /path/to/minetest/mods/
+# You can skip this line if minetest is in ~/.minetest/
+$ mtpm set minetest_root /path/to/minetest/
+
 
 # Install packages
 $ mtpm install package1 package2 package3

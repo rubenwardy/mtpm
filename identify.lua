@@ -1,28 +1,26 @@
-function mtpm.get_base_folder(path)
+function mtpm.get_base_folder(path, skip_sub_dirs)
 	if path == nil or path == "" then
 		return { type = "invalid", path = "" }
 	end
 
 	if core.file_exists(path .. DIR_DELIM .. "init.lua") then
-		return { type = "mod", path = temppath }
+		return { type = "mod", path = path }
 	end
 
 	if core.file_exists(path .. DIR_DELIM .. "modpack.txt") then
-		return { type = "modpack", path = temppath }
+		return { type = "modpack", path = path }
 	end
 
-	local subdirs = core.get_dir_list(path, true)
-	if #subdirs ~= 1 then
-		return { type = "invalid", path = "" }
+	if core.file_exists(path .. DIR_DELIM .. "game.conf") or
+			core.is_dir(path .. DIR_DELIM .. "mods") then
+		return { type = "subgame", path = path }
 	end
 
-	local subdir = path .. DIR_DELIM .. subdirs[1]
-	if core.file_exists(subdir .. DIR_DELIM .."init.lua") then
-		return { type = "mod", path = subdir }
-	end
-
-	if core.file_exists(subdir .. DIR_DELIM .. "modpack.txt") then
-		return { type = "modpack", path = subdir }
+	if not skip_sub_dirs then
+		local subdirs = core.get_dir_list(path, true)
+		if #subdirs == 1 then
+			return mtpm.get_base_folder(path .. DIR_DELIM .. subdirs[1], true)
+		end
 	end
 
 	return { type = "invalid", path = "" }
