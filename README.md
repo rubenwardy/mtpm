@@ -10,7 +10,7 @@ Some code taken from the existing mod manager in builtin/mainmenu/.
 ## Installation
 
 ```Bash
-$ sudo apt-get install lua5.1 luarocks libzzip-dev
+$ sudo apt-get install lua5.1 luarocks libzzip-dev wget
 $ sudo luarocks install luazip
 $ sudo luarocks install luafilesystem
 $ sudo luarocks install luajson
