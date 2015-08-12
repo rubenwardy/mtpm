@@ -119,7 +119,7 @@ core = core or (function()
 			end
 			local retval = {}
 			for file in lfs.dir(directory) do
-				if core.is_dir(directory .. file) and
+				if core.is_dir(directory .. DIR_DELIM .. file) and
 				 		file ~= "." and file ~= ".." then
 					table.insert(retval, file)
 				end
@@ -141,7 +141,7 @@ core = core or (function()
 				return false
 			end
 
-			print("doing")
+			--[[print("doing")
 			local c = curl.new()
 			c:setopt(curl.OPT_URL, url)
 			c:setopt(curl.OPT_USERAGENT, "mtpm/0.1")
@@ -154,7 +154,7 @@ core = core or (function()
 			c:perform()
 			c:close()
 			file:close()
-			print("done")
+			print("done")]]--
 		end,
 		extract_zip = function(filepath, path)
 			local zfile, err = zip.open(filepath)

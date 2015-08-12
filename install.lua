@@ -211,7 +211,15 @@ function mtpm.install_folder(details, dir, override)
 			clean_packname = "mp_1"
 		end
 
-		return doinstall(dir, basefolder, core.get_modpath() .. DIR_DELIM .. clean_packname, override)
+		local to = core.get_modpath() .. DIR_DELIM .. clean_packname
+		local ret, msg = doinstall(dir, basefolder, to, override)
+		if ret == 1 then
+			local subdirs = core.get_dir_list(to, true)
+			for i = 1, #subdirs do
+				mtpm.run_depends_txt(to .. DIR_DELIM .. subdirs[i] .. DIR_DELIM .. "depends.txt")
+			end
+		end
+		return ret, msg
 
 	-- Install mod
 	elseif basefolder.type == "mod" then
@@ -225,7 +233,12 @@ function mtpm.install_folder(details, dir, override)
 			end
 		end
 
-		return doinstall(dir, basefolder, core.get_modpath() .. DIR_DELIM .. clean_modname, override)
+		local to = core.get_modpath() .. DIR_DELIM .. clean_modname
+		local ret, msg = doinstall(dir, basefolder, to, override)
+		if ret == 1 then
+			mtpm.run_depends_txt(to .. DIR_DELIM .. "depends.txt")
+		end
+		return ret, msg
 
 	-- Install subgame
 	elseif basefolder.type == "subgame" then
@@ -267,7 +280,7 @@ end
 -- @return 1, nil - done
 -- @return 2, msg - up to date
 -- @return 3, msg - not found
-function mtpm.install(details)
+function mtpm.install(details, override)
 	--if details.basename == "default" then
 	--	return 2, fgettext("$1 is already installed (minetest_game)", details.basename)
 	--end
@@ -364,11 +377,50 @@ end
 -- @return `1, msg` - failure
 -- @return `2, msg` - up to date
 -- @return `3, msg` - not found
-function mtpm.run_query(query)
+function mtpm.run_query(query, override)
 	local details, msg = mtpm.parse_query(query)
 	if not details then
 		return 1, msg
 	end
 
-	return mtpm.install(details)
+	return mtpm.install(details, override)
+end
+
+function mtpm.run_query_wrapper(query, override, install_optional)
+	print(query .. ":")
+
+	if query:sub(#query) == "?" then
+		query = query:sub(1, #query - 1)
+		if not install_optional then
+			print("   - Skipping optional mod " .. query)
+			return
+		end
+	end
+
+	local status, msg = mtpm.run_query(query, override)
+
+	if msg then
+		print("   - " .. msg)
+	end
+
+	if status == 0 then
+		mtpm._failed = mtpm._failed + 1
+	elseif status == 1 then
+		mtpm._done = mtpm._done + 1
+	elseif status == 2 then
+		mtpm._uptodate = mtpm._uptodate + 1
+	elseif status == 3 then
+		mtpm._notfound = mtpm._notfound + 1
+	end
+end
+
+function mtpm.run_depends_txt(filepath, override, install_optional)
+	f = io.open(filepath, "r")
+	if f then
+		for line in f:lines() do
+			mtpm.run_query_wrapper(line:trim(), override, install_optional)
+		end
+	else
+		print("Error opening file " .. filepath)
+	end
 end

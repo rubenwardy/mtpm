@@ -129,58 +129,23 @@ end
 if debug.getinfo(2) then
 	local function command_install(args, options, reinstall, override)
 		override = override or reinstall
-		local done     = 0
-		local failed   = 0
-		local notfound = 0
-		local uptodate = 0
-
-		local function run_query_wrapper(query)
-			print(query .. ":")
-
-			if query:sub(#query) == "?" then
-				query = query:sub(1, #query - 1)
-				if not options.yes then
-					print("   - Skipping optional mod " .. query)
-					return
-				end
-			end
-
-			local status, msg = mtpm.run_query(query)
-
-			if msg then
-				print("   - " .. msg)
-			end
-
-			if status == 0 then
-				failed = failed + 1
-			elseif status == 1 then
-				done = done + 1
-			elseif status == 2 then
-				uptodate = uptodate + 1
-			elseif status == 3 then
-				notfound = notfound + 1
-			end
-		end
+		mtpm._done     = 0
+		mtpm._failed   = 0
+		mtpm._notfound = 0
+		mtpm._uptodate = 0
 
 		-- Read from arguments
 		for i = 2, #args do
-			run_query_wrapper(args[i])
+			mtpm.run_query_wrapper(args[i], override, options.yes)
 		end
 
 		-- Look for depends.txt files to read
 		if options.depends then
-			f = io.open(options.depends, "r")
-			if f then
-				for line in f:lines() do
-					run_query_wrapper(line:trim())
-				end
-			else
-				print("Error opening file " .. options.depends)
-			end
+			mtpm.run_depends_txt(options.depends, override, options.yes)
 		end
 
-		print(done .. " installed, " .. uptodate .. " already installed, "
-				.. failed .. " failed and " .. notfound
+		print(mtpm._done .. " installed, " .. mtpm._uptodate .. " already installed, "
+				.. mtpm._failed .. " failed and " .. mtpm._notfound
 				.. " could not be found.")
 	end
 
@@ -278,8 +243,9 @@ if debug.getinfo(2) then
 		local modloc = core.get_modpath()
 		if not modloc or not core.is_dir(modloc) then
 			print("Unable to find the mods/ directory. Fix using:")
-			print("mtpm set mod_location /path/to/mods/")
-			print(" (if you have already done this, check that the directory exists.)")
+			print("mtpm set minetest_root /path/to/minetest/")
+			print(" (if you have already done this, check that the directory exists.")
+			print("     Don't include bin/minetest)")
 			os.exit(-1)
 		end
 
