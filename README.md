@@ -29,31 +29,31 @@ $ mtpm set minetest_root /path/to/minetest/
 ## Usage
 
 ```Bash
-    # Install multiple packages
-    mtpm install homedecor food tutorial
+# Install multiple packages
+mtpm install homedecor food tutorial
 
-    # Specify the type of a package
-    mtpm install food#mod
-    mtpm install tutorial#subgame
+# Specify the type of a package
+mtpm install food#mod
+mtpm install tutorial#subgame
 
-    # Specify the author
-    mtpm install tenplus1/mobs
-    mtpm install PilzAdam/mobs
+# Specify the author
+mtpm install tenplus1/mobs
+mtpm install PilzAdam/mobs
 
-    # Specify the repository
-    mtpm install carts@ModSearch
-    mtpm install boost_cart@minetest-bower
-    mtpm install technic_game@mtpm_sg
+# Specify the repository
+mtpm install carts@ModSearch
+mtpm install boost_cart@minetest-bower
+mtpm install technic_game@mtpm_sg
 
-    # From github
-    mtpm install PilzAdam/farming_plus@github
-    mtpm install https://github.com/PilzAdam/farming_plus
+# From github
+mtpm install PilzAdam/farming_plus@github
+mtpm install https://github.com/PilzAdam/farming_plus
 
-    # From url
-    mtpm install https://example.com/archive.zip
+# From url
+mtpm install https://example.com/archive.zip
 
-    # From file
-    mtpm install archive.zip
+# From file
+mtpm install archive.zip
 
 # A query can be in one of these forms:
 #	basename - gets from repos (eg: mmdb, ModSearch)
